@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# rc.local
+#
+# This script is executed at the end of each multiuser runlevel.
+# Make sure that the script will "exit 0" on success or any other
+# value on error.
+#
+# In order to enable or disable this script just change the execution
+# bits.
+#
+# By default this script does nothing.
+
+# overclock CPU
+echo performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+echo 1200000 > /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq
+echo 1200000 > /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq
+
+# overclock video encoder
+#killall majestic
+#sleep 2
+#echo 480000000 > /sys/venc/ven_clock
+#sleep 1
+#majestic &
+
+msposd --master /dev/ttyS2 --baudrate 115200 --channels 8 --out 127.0.0.1:14555 --wait 5 --persist 50 -osd -r 3 --ahi 0 &
+
+#start UDP listener and adaptive link
+wfb_rx -c 127.0.0.1 -u 5000 -K /etc/drone.key -p 1 -i 7669207 wlan0 &
+/etc/./alink3.sh
+
+#basic command if we want to send messages to the shell (for config)
+#socat UDP-RECV:5000 STDOUT | /bin/sh &
+
+exit 0
