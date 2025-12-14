@@ -10,7 +10,7 @@ ROCKCHIP_RKBIN_OVERRIDE_SRCDIR=$(BUILD_DIR)/radxa-bsp-main/.src/rkbin
 define LINUX_INSTALL_INTERNAL_DB_TXT
 	@echo "Installing net/wireless/db.txt for INTERNAL_REGDB"
 	$(INSTALL) -D -m 0644 \
-		$(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/board/radxa/zero3/regdb/db.txt \
+		$(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/board/radxa/zero3/db.txt \
 		$(@D)/net/wireless/db.txt
 	$(call KCONFIG_ENABLE_OPT,CONFIG_CFG80211_INTERNAL_REGDB)
 	$(call KCONFIG_DISABLE_OPT,CONFIG_CFG80211_REQUIRE_SIGNED_REGDB)
