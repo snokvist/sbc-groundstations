@@ -69,7 +69,7 @@ define LINUX_FORCE_REGDB_POST_CONFIGURE
 	echo 'CONFIG_LOCALVERSION="-regdbtest"' >> $(@D)/.config
 
 	# Regenerate generated config headers so the build uses your updated .config
-#	$(MAKE) -C $(@D) olddefconfig
+	$(MAKE) -C $(@D) olddefconfig
 endef
 LINUX_POST_CONFIGURE_HOOKS += LINUX_FORCE_REGDB_POST_CONFIGURE
 
