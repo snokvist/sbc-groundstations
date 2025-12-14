@@ -1,0 +1,78 @@
+#!/bin/sh
+# Simple control script for autod (no pidfile, no start-stop-daemon)
+
+DAEMON="/usr/bin/autod"
+DAEMON_ARGS="/etc/autod/autod.conf"
+
+get_pids() {
+    if command -v pidof >/dev/null 2>&1; then
+        pidof "$(basename "$DAEMON")"
+    else
+        pgrep -x "$(basename "$DAEMON")" || pgrep -f "^$DAEMON[ ]"
+    fi
+}
+
+is_running() {
+    [ -n "$(get_pids)" ]
+}
+
+start() {
+    if is_running; then
+        echo "$(basename "$DAEMON") already running (PIDs: $(get_pids))"
+        return 0
+    fi
+
+    echo -n "Starting $(basename "$DAEMON"): "
+    "$DAEMON" "$DAEMON_ARGS" >/dev/null 2>&1 &
+    sleep 0.2
+
+    if is_running; then
+        echo "OK (PIDs: $(get_pids))"
+        return 0
+    else
+        echo "FAIL"
+        return 1
+    fi
+}
+
+stop() {
+    if ! is_running; then
+        echo "$(basename "$DAEMON") is not running"
+        return 0
+    fi
+
+    echo -n "Stopping $(basename "$DAEMON"): "
+    PIDS="$(get_pids)"
+    kill $PIDS 2>/dev/null
+
+    for _ in 1 2 3 4 5; do
+        sleep 0.2
+        is_running || { echo "OK"; return 0; }
+    done
+
+    kill -9 $(get_pids) 2>/dev/null
+    sleep 0.2
+    is_running && { echo "FAIL"; return 1; }
+    echo "OK"
+    return 0
+}
+
+reload() {
+    if ! is_running; then
+        echo "$(basename "$DAEMON") is not running"
+        return 1
+    fi
+    echo -n "Reloading $(basename "$DAEMON") (SIGHUP): "
+    kill -HUP $(get_pids) 2>/dev/null && echo "OK" || echo "FAIL"
+}
+
+case "$1" in
+    start) start ;;
+    stop) stop ;;
+    restart) stop; sleep 0.2; start ;;
+    reload) reload ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|reload}"
+        exit 1
+        ;;
+esac
