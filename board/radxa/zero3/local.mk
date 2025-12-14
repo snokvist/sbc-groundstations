@@ -6,13 +6,6 @@ ROCKCHIP_RKBIN_OVERRIDE_SRCDIR=$(BUILD_DIR)/radxa-bsp-main/.src/rkbin
 
 LINUX_DEPENDENCIES += wireless-regdb
 
-define LINUX_INSTALL_INTERNAL_DB_TXT
-	@echo "Installing net/wireless/db.txt for INTERNAL_REGDB"
-	$(INSTALL) -D -m 0644 \
-		$(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/board/radxa/zero3/db.txt \
-		$(@D)/net/wireless/db.txt
-endef
-LINUX_POST_PATCH_HOOKS += LINUX_INSTALL_INTERNAL_DB_TXT
 
 define BUSYBOX_APPLY_CUSTOM_PATCHES
     $(APPLY_PATCHES) $(@D) $(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/package/busybox \*.patch
@@ -40,10 +33,25 @@ LINUX_POST_RSYNC_HOOKS += CI_CLEANUP_SRC_HOOK
 
 endif
 
-define LINUX_APPLY_CUSTOM_PATCHES
-	$(APPLY_PATCHES) $(@D) $(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/board/radxa/zero3/linux-patches \*.patch
+define LINUX_RK_REGDB_AFTER_RSYNC
+	@echo "Post-rsync: applying kernel patches + installing internal regdb in $(@D)"
+
+	# Apply kernel patches
+	$(APPLY_PATCHES) $(@D) \
+		$(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/board/radxa/zero3/linux-patches \
+		\*.patch
+
+	# Install db.txt for INTERNAL_REGDB
+	$(INSTALL) -D -m 0644 \
+		$(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/board/radxa/zero3/db.txt \
+		$(@D)/net/wireless/db.txt
+
+	# Hard assertions (fail build if missing)
+	@test -f $(@D)/net/wireless/db.txt
+	@grep -n "CFG80211_REQUIRE_SIGNED_REGDB" $(@D)/net/wireless/Kconfig | head -n 5
 endef
-LINUX_POST_PATCH_HOOKS += LINUX_APPLY_CUSTOM_PATCHES
+LINUX_POST_RSYNC_HOOKS += LINUX_RK_REGDB_AFTER_RSYNC
+
 
 # Force wireless regdb options after Buildroot's olddefconfig, since the symbols
 # are hidden and otherwise revert to defaults.
