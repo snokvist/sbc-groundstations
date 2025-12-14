@@ -22,6 +22,23 @@ PACKAGES_LINUX_CONFIG_FIXUPS += $(LINUX_INTERNAL_REGDB_CONFIG_FIXUPS)$(sep)
 
 
 
+define LINUX_FORCE_REGDB_POST_CONFIGURE
+	$(SED) '/^\(# \)\?CONFIG_CFG80211_INTERNAL_REGDB\>/d' $(@D)/.config
+	echo 'CONFIG_CFG80211_INTERNAL_REGDB=y' >> $(@D)/.config
+	$(SED) '/^\(# \)\?CONFIG_CFG80211_REQUIRE_SIGNED_REGDB\>/d' $(@D)/.config
+	echo '# CONFIG_CFG80211_REQUIRE_SIGNED_REGDB is not set' >> $(@D)/.config
+
+	# Optional but strongly recommended: stamp kernel version so you can verify on target
+	$(SED) '/^\(# \)\?CONFIG_LOCALVERSION\>/d' $(@D)/.config
+	echo 'CONFIG_LOCALVERSION="-regdbtest"' >> $(@D)/.config
+
+	# Regenerate generated config headers so the build uses your updated .config
+	$(MAKE) -C $(@D) olddefconfig
+endef
+LINUX_POST_CONFIGURE_HOOKS += LINUX_FORCE_REGDB_POST_CONFIGURE
+
+
+
 define LINUX_INSTALL_INTERNAL_DB_TXT
 	@echo "Installing net/wireless/db.txt for INTERNAL_REGDB"
 	$(INSTALL) -D -m 0644 \
