@@ -8,6 +8,5 @@ config BR2_PACKAGE_JOYSTICK2CRSF
 	    - /usr/bin/joystick2crsf
 	    - /etc/joystick2crsf.conf
 	    - SysV init script: /etc/init.d/S96joystick2crsf
-	    - systemd unit: /usr/lib/systemd/system/joystick2crsf.service (if enabled)
 
 	  https://github.com/snokvist/joystick2crsf
