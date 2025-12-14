@@ -8,4 +8,3 @@
  		select SYSTEM_DATA_VERIFICATION
  		help
  		  Require that in addition to the "regulatory.db" file a
-PATCH
