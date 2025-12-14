@@ -4,6 +4,8 @@ UBOOT_OVERRIDE_SRCDIR=$(BUILD_DIR)/radxa-bsp-main/.src/u-boot
 UBOOT_OVERRIDE_SRCDIR=$(BUILD_DIR)/radxa-bsp-main/.src/u-boot
 ROCKCHIP_RKBIN_OVERRIDE_SRCDIR=$(BUILD_DIR)/radxa-bsp-main/.src/rkbin
 
+LINUX_DEPENDENCIES += wireless-regdb
+
 # Force wireless regdb options after Buildroot's olddefconfig, since the symbols
 # are hidden and otherwise revert to defaults.
 
@@ -16,9 +18,6 @@ define LINUX_INSTALL_INTERNAL_DB_TXT
 	$(call KCONFIG_DISABLE_OPT,CONFIG_CFG80211_REQUIRE_SIGNED_REGDB)
 endef
 LINUX_POST_PATCH_HOOKS += LINUX_INSTALL_INTERNAL_DB_TXT
-
-
-
 
 define BUSYBOX_APPLY_CUSTOM_PATCHES
     $(APPLY_PATCHES) $(@D) $(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/package/busybox \*.patch
