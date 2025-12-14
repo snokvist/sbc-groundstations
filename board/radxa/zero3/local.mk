@@ -6,12 +6,19 @@ ROCKCHIP_RKBIN_OVERRIDE_SRCDIR=$(BUILD_DIR)/radxa-bsp-main/.src/rkbin
 
 # Force wireless regdb options after Buildroot's olddefconfig, since the symbols
 # are hidden and otherwise revert to defaults.
-define LINUX_FORCE_CFG80211_REGDB_OPTIONS
+
+define LINUX_INSTALL_INTERNAL_DB_TXT
+	@echo "Installing net/wireless/db.txt for INTERNAL_REGDB"
+	$(INSTALL) -D -m 0644 \
+		$(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/board/radxa/zero3/regdb/db.txt \
+		$(@D)/net/wireless/db.txt
 	$(call KCONFIG_ENABLE_OPT,CONFIG_CFG80211_INTERNAL_REGDB)
 	$(call KCONFIG_DISABLE_OPT,CONFIG_CFG80211_REQUIRE_SIGNED_REGDB)
 endef
+LINUX_POST_PATCH_HOOKS += LINUX_INSTALL_INTERNAL_DB_TXT
 
-PACKAGES_LINUX_CONFIG_FIXUPS += LINUX_FORCE_CFG80211_REGDB_OPTIONS
+
+
 
 define BUSYBOX_APPLY_CUSTOM_PATCHES
     $(APPLY_PATCHES) $(@D) $(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/package/busybox \*.patch
