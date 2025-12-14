@@ -40,6 +40,11 @@ LINUX_POST_RSYNC_HOOKS += CI_CLEANUP_SRC_HOOK
 
 endif
 
+define LINUX_APPLY_CUSTOM_PATCHES
+	$(APPLY_PATCHES) $(@D) $(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/board/radxa/zero3/linux-patches \*.patch
+endef
+LINUX_POST_PATCH_HOOKS += LINUX_APPLY_CUSTOM_PATCHES
+
 # Force wireless regdb options after Buildroot's olddefconfig, since the symbols
 # are hidden and otherwise revert to defaults.
 # Force cfg80211 regdb options after olddefconfig (hidden symbols may revert otherwise)
