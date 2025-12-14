@@ -8,11 +8,15 @@ LINUX_DEPENDENCIES += wireless-regdb
 
 # Force wireless regdb options after Buildroot's olddefconfig, since the symbols
 # are hidden and otherwise revert to defaults.
+# Force cfg80211 regdb options after olddefconfig (hidden symbols may revert otherwise)
 define LINUX_INTERNAL_REGDB_CONFIG
-	$(call KCONFIG_ENABLE_OPT,CONFIG_CFG80211_INTERNAL_REGDB)
-	$(call KCONFIG_SET_OPT,CONFIG_CFG80211_DEFAULT_REGDOM,"US")
-	$(call KCONFIG_DISABLE_OPT,CONFIG_CFG80211_REQUIRE_SIGNED_REGDB)
+	$(SED) '/^\(# \)\?CONFIG_CFG80211_INTERNAL_REGDB\>/d' $(@D)/.config; \
+		echo 'CONFIG_CFG80211_INTERNAL_REGDB=y' >> $(@D)/.config; \
+	$(SED) '/^\(# \)\?CONFIG_CFG80211_REQUIRE_SIGNED_REGDB\>/d' $(@D)/.config; \
+		echo '# CONFIG_CFG80211_REQUIRE_SIGNED_REGDB is not set' >> $(@D)/.config
+	@tail -n 5 $(@D)/.config | grep -E 'CFG80211_INTERNAL_REGDB|CFG80211_REQUIRE_SIGNED_REGDB' || true
 endef
+
 PACKAGES_LINUX_CONFIG_FIXUPS += LINUX_INTERNAL_REGDB_CONFIG
 
 
