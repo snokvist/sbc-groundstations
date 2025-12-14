@@ -8,14 +8,20 @@ LINUX_DEPENDENCIES += wireless-regdb
 
 # Force wireless regdb options after Buildroot's olddefconfig, since the symbols
 # are hidden and otherwise revert to defaults.
+define LINUX_INTERNAL_REGDB_CONFIG
+	$(call KCONFIG_ENABLE_OPT,CONFIG_CFG80211_INTERNAL_REGDB)
+	$(call KCONFIG_SET_OPT,CONFIG_CFG80211_DEFAULT_REGDOM,"US")
+	$(call KCONFIG_DISABLE_OPT,CONFIG_CFG80211_REQUIRE_SIGNED_REGDB)
+endef
+PACKAGES_LINUX_CONFIG_FIXUPS += LINUX_INTERNAL_REGDB_CONFIG
+
+
 
 define LINUX_INSTALL_INTERNAL_DB_TXT
 	@echo "Installing net/wireless/db.txt for INTERNAL_REGDB"
 	$(INSTALL) -D -m 0644 \
 		$(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/board/radxa/zero3/db.txt \
 		$(@D)/net/wireless/db.txt
-	$(call KCONFIG_ENABLE_OPT,CONFIG_CFG80211_INTERNAL_REGDB)
-	$(call KCONFIG_DISABLE_OPT,CONFIG_CFG80211_REQUIRE_SIGNED_REGDB)
 endef
 LINUX_POST_PATCH_HOOKS += LINUX_INSTALL_INTERNAL_DB_TXT
 
