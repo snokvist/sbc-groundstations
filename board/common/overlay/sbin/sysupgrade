@@ -84,12 +84,24 @@ do_wipe_overlay() {
 
 free_resources() {
 	echo_c 37 "\nStop services, sync files, free up memory"
-	/etc/init.d/S99pixelpilot stop
-	/etc/init.d/S98adaptive-link stop
-	/etc/init.d/S98msposd stop
-	/etc/init.d/S50crond stop
-	/etc/init.d/S02klogd stop
-	/etc/init.d/S01syslogd stop
+
+	stop_if_exists() {
+		# usage: stop_if_exists /etc/init.d/S99foo
+		svc="$1"
+		if [ -x "$svc" ]; then
+			"$svc" stop
+		else
+			echo "skipping... $svc not found"
+		fi
+	}
+
+	stop_if_exists /etc/init.d/S99pixelpilot
+	stop_if_exists /etc/init.d/S98adaptive-link
+	stop_if_exists /etc/init.d/S98msposd
+	stop_if_exists /etc/init.d/S50crond
+	stop_if_exists /etc/init.d/S02klogd
+	stop_if_exists /etc/init.d/S01syslogd
+
 	sleep 1
 
 	sync
