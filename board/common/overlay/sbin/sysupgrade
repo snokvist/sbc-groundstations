@@ -102,6 +102,9 @@ free_resources() {
 	stop_if_exists /etc/init.d/S02klogd
 	stop_if_exists /etc/init.d/S01syslogd
 
+	stop_if_exists /etc/init.d/S99pixelpilot_mini_rk
+	stop_if_exists /etc/init.d/S96joystick2crsf
+	stop_if_exists /etc/init.d/S99autod
 	sleep 1
 
 	sync
