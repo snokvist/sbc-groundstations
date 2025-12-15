@@ -22,7 +22,7 @@ endef
 define IP2UART_INSTALL_TARGET_CMDS
 	# Binary -> /usr/sbin
 	$(INSTALL) -D -m 0755 $(@D)/ip2uart \
-		$(TARGET_DIR)/usr/sbin/ip2uart
+		$(TARGET_DIR)/usr/bin/ip2uart
 
 	# Default config
 	$(INSTALL) -D -m 0644 $(@D)/ip2uart.conf \
