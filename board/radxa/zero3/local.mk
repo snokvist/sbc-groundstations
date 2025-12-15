@@ -34,23 +34,26 @@ LINUX_POST_RSYNC_HOOKS += CI_CLEANUP_SRC_HOOK
 endif
 
 define LINUX_RK_REGDB_AFTER_RSYNC
-	@echo "Post-rsync: applying kernel patches + installing internal regdb in $(@D)"
+	@echo "Post-rsync: apply patches + install db + force kconfig"
 
-	# Apply kernel patches
 	$(APPLY_PATCHES) $(@D) \
 		$(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/board/radxa/zero3/linux-patches \
 		\*.patch
 
-	# Install db.txt for INTERNAL_REGDB
 	$(INSTALL) -D -m 0644 \
 		$(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/board/radxa/zero3/db.txt \
 		$(@D)/net/wireless/db.txt
 
-	# Hard assertions (fail build if missing)
-	@test -f $(@D)/net/wireless/db.txt
-	@grep -n "CFG80211_REQUIRE_SIGNED_REGDB" $(@D)/net/wireless/Kconfig | head -n 5
+	# If .config exists already, force the values
+	@if [ -f $(@D)/.config ]; then \
+		$(SED) '/^\(# \)\?CONFIG_CFG80211_INTERNAL_REGDB\>/d' $(@D)/.config; \
+		echo 'CONFIG_CFG80211_INTERNAL_REGDB=y' >> $(@D)/.config; \
+		$(SED) '/^\(# \)\?CONFIG_CFG80211_REQUIRE_SIGNED_REGDB\>/d' $(@D)/.config; \
+		echo '# CONFIG_CFG80211_REQUIRE_SIGNED_REGDB is not set' >> $(@D)/.config; \
+	fi
 endef
 LINUX_POST_RSYNC_HOOKS += LINUX_RK_REGDB_AFTER_RSYNC
+
 
 
 # Force wireless regdb options after Buildroot's olddefconfig, since the symbols
