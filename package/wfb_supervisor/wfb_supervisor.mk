@@ -17,7 +17,7 @@ define WFB_SUPERVISOR_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0755 $(@D)/scripts/shaper.sh $(TARGET_DIR)/usr/bin/shaper.sh
 #	$(INSTALL) -D -m 0644 $(@D)/config/wfb.conf $(TARGET_DIR)/etc/wfb.conf
 	$(INSTALL) -D -m 0644 $(@D)/config/wfb-aggregator.conf $(TARGET_DIR)/etc/wfb.conf
-	$(LN) -sf /usr/bin/wfb_supervisor $(TARGET_DIR)/usr/bin/wifi_supervisor
+	ln -sf /usr/bin/wfb_supervisor $(TARGET_DIR)/usr/bin/wifi_supervisor
 
 endef
 
