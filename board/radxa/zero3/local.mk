@@ -65,9 +65,6 @@ define LINUX_REGDB_FORCE_BUILTIN_FW_CONFIG
 	$(SED) '/^\(# \)\?CONFIG_EXTRA_FIRMWARE_DIR\>/d' $(@D)/.config
 	echo 'CONFIG_EXTRA_FIRMWARE_DIR="firmware"' >> $(@D)/.config
 
-	# IMPORTANT: regenerate auto.conf/autoconf.h
-	$(MAKE) -C $(@D) olddefconfig
-
 	# Hard check
 	grep -E 'CONFIG_FIRMWARE_IN_KERNEL|CONFIG_EXTRA_FIRMWARE|CONFIG_EXTRA_FIRMWARE_DIR' $(@D)/.config
 endef
