@@ -11,6 +11,14 @@ RADXA_ZERO3_GAMMA_LICENSE = Proprietary
 
 RADXA_ZERO3_GAMMA_DEPENDENCIES = libdrm
 
+# Optional extra install step (evaluated by make, not by the shell)
+ifeq ($(BR2_PACKAGE_RADXA_ZERO3_GAMMA_INSTALL_PRESETS),y)
+RADXA_ZERO3_GAMMA_INSTALL_PRESETS_CMD = \
+	$(INSTALL) -D -m 0644 $(@D)/presets.ini $(TARGET_DIR)/etc/gamma-presets.ini
+else
+RADXA ZERO3_GAMMA_INSTALL_PRESETS_CMD =
+endif
+
 define RADXA_ZERO3_GAMMA_BUILD_CMDS
 	$(TARGET_MAKE_ENV) $(MAKE) -C $(@D) \
 		CC="$(TARGET_CC)" \
@@ -25,9 +33,7 @@ define RADXA_ZERO3_GAMMA_INSTALL_TARGET_CMDS
 		DESTDIR="$(TARGET_DIR)" \
 		PREFIX="/usr" \
 		install
-ifeq ($(BR2_PACKAGE_RADXA_ZERO3_GAMMA_INSTALL_PRESETS),y)
-	$(INSTALL) -D -m 0644 $(@D)/presets.ini $(TARGET_DIR)/etc/gamma-presets.ini
-endif
+	$(RADXA_ZERO3_GAMMA_INSTALL_PRESETS_CMD)
 endef
 
 $(eval $(generic-package))
