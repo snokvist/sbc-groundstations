@@ -54,4 +54,22 @@ define LINUX_REGDB_COPY_FOR_BUILTIN_FW
 endef
 LINUX_POST_PATCH_HOOKS += LINUX_REGDB_COPY_FOR_BUILTIN_FW
 
+define LINUX_REGDB_FORCE_BUILTIN_FW_CONFIG
+	@echo "Force built-in firmware for regulatory.db (and regenerate config)"
+	$(SED) '/^\(# \)\?CONFIG_FIRMWARE_IN_KERNEL\>/d' $(@D)/.config
+	echo 'CONFIG_FIRMWARE_IN_KERNEL=y' >> $(@D)/.config
+
+	$(SED) '/^\(# \)\?CONFIG_EXTRA_FIRMWARE\>/d' $(@D)/.config
+	echo 'CONFIG_EXTRA_FIRMWARE="regulatory.db regulatory.db.p7s"' >> $(@D)/.config
+
+	$(SED) '/^\(# \)\?CONFIG_EXTRA_FIRMWARE_DIR\>/d' $(@D)/.config
+	echo 'CONFIG_EXTRA_FIRMWARE_DIR="firmware"' >> $(@D)/.config
+
+	# IMPORTANT: regenerate auto.conf/autoconf.h
+	$(MAKE) -C $(@D) olddefconfig
+
+	# Hard check
+	grep -E 'CONFIG_FIRMWARE_IN_KERNEL|CONFIG_EXTRA_FIRMWARE|CONFIG_EXTRA_FIRMWARE_DIR' $(@D)/.config
+endef
+LINUX_POST_CONFIGURE_HOOKS += LINUX_REGDB_FORCE_BUILTIN_FW_CONFIG
 
