@@ -10,15 +10,19 @@ define WFB_SUPERVISOR_BUILD_CMDS
 		CC="$(TARGET_CC)" \
 		CFLAGS="$(TARGET_CFLAGS)"
 endef
-
 define WFB_SUPERVISOR_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0755 $(@D)/wfb_supervisor $(TARGET_DIR)/usr/bin/wfb_supervisor
 	$(INSTALL) -D -m 0755 $(@D)/scripts/monitor.sh $(TARGET_DIR)/usr/bin/monitor.sh
 	$(INSTALL) -D -m 0755 $(@D)/scripts/shaper.sh $(TARGET_DIR)/usr/bin/shaper.sh
-#	$(INSTALL) -D -m 0644 $(@D)/config/wfb.conf $(TARGET_DIR)/etc/wfb.conf
 	$(INSTALL) -D -m 0644 $(@D)/config/wfb-aggregator.conf $(TARGET_DIR)/etc/wfb.conf
-	ln -sf /usr/bin/wfb_supervisor $(TARGET_DIR)/usr/bin/wifi_supervisor
 
+	# Wrapper "alias" that forces a config
+	$(INSTALL) -D -m 0755 /dev/null $(TARGET_DIR)/usr/bin/wifi_supervisor
+	printf '%s\n' '#!/bin/sh' \
+		'exec /usr/bin/wfb_supervisor /etc/wifi_supervisor.conf "$$@"' \
+		> $(TARGET_DIR)/usr/bin/wifi_supervisor
+
+	$(INSTALL) -D -m 0644 $(@D)/config/wfb-aggregator.conf $(TARGET_DIR)/etc/wifi_supervisor.conf
 endef
 
 $(eval $(generic-package))
