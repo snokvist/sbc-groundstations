@@ -4,9 +4,6 @@ UBOOT_OVERRIDE_SRCDIR=$(BUILD_DIR)/radxa-bsp-main/.src/u-boot
 UBOOT_OVERRIDE_SRCDIR=$(BUILD_DIR)/radxa-bsp-main/.src/u-boot
 ROCKCHIP_RKBIN_OVERRIDE_SRCDIR=$(BUILD_DIR)/radxa-bsp-main/.src/rkbin
 
-LINUX_DEPENDENCIES += wireless-regdb
-
-
 define BUSYBOX_APPLY_CUSTOM_PATCHES
     $(APPLY_PATCHES) $(@D) $(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/package/busybox \*.patch
 endef
@@ -40,24 +37,6 @@ define LINUX_RK_REGDB_AFTER_RSYNC
 		$(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/board/radxa/zero3/linux-patches \
 		\*.patch
 
-	$(INSTALL) -D -m 0644 \
-		$(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/board/radxa/zero3/db.txt \
-		$(@D)/net/wireless/db.txt
-
 endef
 LINUX_POST_RSYNC_HOOKS += LINUX_RK_REGDB_AFTER_RSYNC
 
-
-# Force wireless regdb options after Buildroot's olddefconfig, since the symbols
-# are hidden and otherwise revert to defaults.
-# Force cfg80211 regdb options after olddefconfig (hidden symbols may revert otherwise)
-define LINUX_INTERNAL_REGDB_CONFIG_FIXUPS
-	$(SED) '/^\(# \)\?CONFIG_CFG80211_INTERNAL_REGDB\>/d' $(@D)/.config
-	echo 'CONFIG_CFG80211_INTERNAL_REGDB=y' >> $(@D)/.config
-	$(SED) '/^\(# \)\?CONFIG_CFG80211_REQUIRE_SIGNED_REGDB\>/d' $(@D)/.config
-	echo '# CONFIG_CFG80211_REQUIRE_SIGNED_REGDB is not set' >> $(@D)/.config
-	grep -E 'CFG80211_INTERNAL_REGDB|CFG80211_REQUIRE_SIGNED_REGDB' $(@D)/.config || true
-endef
-
-# IMPORTANT: expand the contents, don’t add the name as a literal token
-PACKAGES_LINUX_CONFIG_FIXUPS += $(LINUX_INTERNAL_REGDB_CONFIG_FIXUPS)$(sep)
