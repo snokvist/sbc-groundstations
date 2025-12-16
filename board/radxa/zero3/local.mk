@@ -3,6 +3,7 @@ LINUX_CFLAGS = "-Wno-enum-int-mismatch"
 UBOOT_OVERRIDE_SRCDIR=$(BUILD_DIR)/radxa-bsp-main/.src/u-boot
 UBOOT_OVERRIDE_SRCDIR=$(BUILD_DIR)/radxa-bsp-main/.src/u-boot
 ROCKCHIP_RKBIN_OVERRIDE_SRCDIR=$(BUILD_DIR)/radxa-bsp-main/.src/rkbin
+LINUX_DEPENDENCIES += wireless-regdb
 
 define BUSYBOX_APPLY_CUSTOM_PATCHES
     $(APPLY_PATCHES) $(@D) $(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/package/busybox \*.patch
@@ -39,4 +40,18 @@ define LINUX_RK_REGDB_AFTER_RSYNC
 
 endef
 LINUX_POST_RSYNC_HOOKS += LINUX_RK_REGDB_AFTER_RSYNC
+
+
+define LINUX_REGDB_COPY_FOR_BUILTIN_FW
+	@echo "Copy regulatory.db into kernel tree for built-in firmware"
+	mkdir -p $(@D)/firmware
+	$(INSTALL) -m 0644 \
+		$(BUILD_DIR)/wireless-regdb-$(WIRELESS_REGDB_VERSION)/regulatory.db \
+		$(@D)/firmware/regulatory.db
+	$(INSTALL) -m 0644 \
+		$(BUILD_DIR)/wireless-regdb-$(WIRELESS_REGDB_VERSION)/regulatory.db.p7s \
+		$(@D)/firmware/regulatory.db.p7s
+endef
+LINUX_POST_PATCH_HOOKS += LINUX_REGDB_COPY_FOR_BUILTIN_FW
+
 
