@@ -43,16 +43,21 @@ LINUX_POST_RSYNC_HOOKS += LINUX_RK_REGDB_AFTER_RSYNC
 
 
 define LINUX_REGDB_COPY_FOR_BUILTIN_FW
-	@echo "Copy regulatory.db into kernel tree for built-in firmware"
-	mkdir -p $(@D)/firmware
+	@echo "Copy regulatory.db into kernel objtree for built-in firmware"
+	@obj="$(@D)"; \
+	if [ -f "$(@D)/build/include/config/auto.conf" ]; then obj="$(@D)/build"; fi; \
+	echo "Using objtree: $$obj"; \
+	mkdir -p "$$obj/firmware"; \
 	$(INSTALL) -m 0644 \
 		$(BUILD_DIR)/wireless-regdb-$(WIRELESS_REGDB_VERSION)/regulatory.db \
-		$(@D)/firmware/regulatory.db
+		"$$obj/firmware/regulatory.db"; \
 	$(INSTALL) -m 0644 \
 		$(BUILD_DIR)/wireless-regdb-$(WIRELESS_REGDB_VERSION)/regulatory.db.p7s \
-		$(@D)/firmware/regulatory.db.p7s
+		"$$obj/firmware/regulatory.db.p7s"; \
+	test -f "$$obj/firmware/regulatory.db"
 endef
-LINUX_POST_PATCH_HOOKS += LINUX_REGDB_COPY_FOR_BUILTIN_FW
+LINUX_POST_CONFIGURE_HOOKS += LINUX_REGDB_COPY_FOR_BUILTIN_FW
+
 
 define LINUX_REGDB_FORCE_BUILTIN_FW_CONFIG
 	@echo "Force built-in firmware for regulatory.db (and regenerate config)"
@@ -65,8 +70,7 @@ define LINUX_REGDB_FORCE_BUILTIN_FW_CONFIG
 	$(SED) '/^\(# \)\?CONFIG_EXTRA_FIRMWARE_DIR\>/d' $(@D)/.config
 	echo 'CONFIG_EXTRA_FIRMWARE_DIR="firmware"' >> $(@D)/.config
 
-	# Hard check
-	grep -E 'CONFIG_FIRMWARE_IN_KERNEL|CONFIG_EXTRA_FIRMWARE|CONFIG_EXTRA_FIRMWARE_DIR' $(@D)/.config
+	#$(MAKE) -C $(@D) olddefconfig
 endef
 LINUX_POST_CONFIGURE_HOOKS += LINUX_REGDB_FORCE_BUILTIN_FW_CONFIG
 
