@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-JOYSTICK2CRSF_VERSION = main
+JOYSTICK2CRSF_VERSION = 458302d4958a48350f56b8ee9445353262dd884b
 JOYSTICK2CRSF_SITE = https://github.com/snokvist/joystick2crsf.git
 JOYSTICK2CRSF_SITE_METHOD = git
 JOYSTICK2CRSF_LICENSE = Proprietary
