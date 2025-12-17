@@ -5,6 +5,18 @@ UBOOT_OVERRIDE_SRCDIR=$(BUILD_DIR)/radxa-bsp-main/.src/u-boot
 ROCKCHIP_RKBIN_OVERRIDE_SRCDIR=$(BUILD_DIR)/radxa-bsp-main/.src/rkbin
 LINUX_DEPENDENCIES += wireless-regdb
 
+
+REGDB_CUSTOM_TXT := $(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/board/radxa/zero3/db.txt
+
+define WIRELESS_REGDB_USE_CUSTOM_DB_AND_REGEN_DB
+	@echo "wireless-regdb: using custom db.txt and regenerating regulatory.db (unsigned)"
+	$(INSTALL) -m 0644 $(REGDB_CUSTOM_TXT) $(@D)/db.txt
+	$(MAKE) -C $(@D) regulatory.db
+	ls -l $(@D)/regulatory.db
+endef
+WIRELESS_REGDB_POST_PATCH_HOOKS += WIRELESS_REGDB_USE_CUSTOM_DB_AND_REGEN_DB
+
+
 define BUSYBOX_APPLY_CUSTOM_PATCHES
     $(APPLY_PATCHES) $(@D) $(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/package/busybox \*.patch
 endef
@@ -51,9 +63,6 @@ define LINUX_REGDB_COPY_FOR_BUILTIN_FW
 	$(INSTALL) -m 0644 \
 		$(BUILD_DIR)/wireless-regdb-$(WIRELESS_REGDB_VERSION)/regulatory.db \
 		"$$obj/firmware/regulatory.db"; \
-	$(INSTALL) -m 0644 \
-		$(BUILD_DIR)/wireless-regdb-$(WIRELESS_REGDB_VERSION)/regulatory.db.p7s \
-		"$$obj/firmware/regulatory.db.p7s"; \
 	test -f "$$obj/firmware/regulatory.db"
 endef
 LINUX_POST_CONFIGURE_HOOKS += LINUX_REGDB_COPY_FOR_BUILTIN_FW
