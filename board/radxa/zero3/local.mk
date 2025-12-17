@@ -75,7 +75,7 @@ define LINUX_REGDB_FORCE_BUILTIN_FW_CONFIG
 	#echo 'CONFIG_FIRMWARE_IN_KERNEL=y' >> $(@D)/.config
 
 	$(SED) '/^\(# \)\?CONFIG_EXTRA_FIRMWARE\>/d' $(@D)/.config
-	echo 'CONFIG_EXTRA_FIRMWARE="regulatory.db regulatory.db.p7s"' >> $(@D)/.config
+	echo 'CONFIG_EXTRA_FIRMWARE="regulatory.db"' >> $(@D)/.config
 
 	$(SED) '/^\(# \)\?CONFIG_EXTRA_FIRMWARE_DIR\>/d' $(@D)/.config
 	echo 'CONFIG_EXTRA_FIRMWARE_DIR="firmware"' >> $(@D)/.config
