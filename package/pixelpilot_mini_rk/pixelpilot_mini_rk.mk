@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-PIXELPILOT_MINI_RK_VERSION = main
+PIXELPILOT_MINI_RK_VERSION = 25189fb6a875929c7f9942441c64e2840ee804a0
 PIXELPILOT_MINI_RK_SITE = https://github.com/snokvist/pixelpilot_mini_rk.git
 PIXELPILOT_MINI_RK_SITE_METHOD = git
 PIXELPILOT_MINI_RK_LICENSE = Proprietary
