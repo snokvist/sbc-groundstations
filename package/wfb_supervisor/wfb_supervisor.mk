@@ -15,11 +15,10 @@ define WFB_SUPERVISOR_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0755 $(@D)/wfb_supervisor $(TARGET_DIR)/usr/bin/wfb_supervisor
 	$(INSTALL) -D -m 0755 $(@D)/scripts/monitor.sh $(TARGET_DIR)/usr/bin/monitor.sh
 	$(INSTALL) -D -m 0755 $(@D)/scripts/shaper.sh $(TARGET_DIR)/usr/bin/shaper.sh
-	$(INSTALL) -D -m 0644 $(@D)/config/wfb.conf $(TARGET_DIR)/etc/wfb.conf
 
 	$(INSTALL) -m 755 -d $(TARGET_DIR)/etc
 	$(INSTALL) -m 644 -t $(TARGET_DIR)/etc $(WFB_SUPERVISOR_PKGDIR)/files/cluster_supervisor.conf
-	$(INSTALL) -m 644 -t $(TARGET_DIR)/etc $(WFB_SUPERVISOR_PKGDIR)/files/wfb_supervisor.conf
+	$(INSTALL) -m 644 -t $(TARGET_DIR)/etc $(WFB_SUPERVISOR_PKGDIR)/files/wfb.conf
 	$(INSTALL) -m 644 -t $(TARGET_DIR)/etc $(WFB_SUPERVISOR_PKGDIR)/files/wifi_supervisor.conf
 
 	# Wrapper "alias" that forces a config
