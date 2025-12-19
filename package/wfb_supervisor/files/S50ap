@@ -1,0 +1,108 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:          ap
+# Required-Start:    $network
+# Required-Stop:     $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+### END INIT INFO
+
+WLAN="wlan0"
+UPLINK="eth0"
+
+AP_ADDR="10.6.0.1/24"
+
+HOSTAPD_CONF="/etc/hostapd/hostapd.conf"
+DHCPD_CONF="/etc/dhcp/dhcpd.conf"
+DHCPD_LEASES="/var/lib/dhcp/dhcpd.leases"
+DHCPD_PID="/var/run/dhcpd.${WLAN}.pid"
+
+HOSTAPD_PID="/var/run/hostapd.pid"
+
+start_ap() {
+  echo "[ap] Bringing up ${WLAN} with ${AP_ADDR}"
+  ip link set "${WLAN}" down 2>/dev/null || true
+  ip addr flush dev "${WLAN}" 2>/dev/null || true
+  ip link set "${WLAN}" up
+  ip addr add "${AP_ADDR}" dev "${WLAN}"
+
+  # If wpa_supplicant is running and holding wlan0, hostapd can fail.
+  if pidof wpa_supplicant >/dev/null 2>&1; then
+    echo "[ap] Stopping wpa_supplicant (was running)"
+    killall wpa_supplicant 2>/dev/null || true
+  fi
+
+  echo "[ap] Enabling IPv4 forwarding"
+  sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
+
+  echo "[ap] Setting up NAT ${WLAN} -> ${UPLINK}"
+  # NAT
+  iptables -t nat -C POSTROUTING -o "${UPLINK}" -j MASQUERADE 2>/dev/null || \
+    iptables -t nat -A POSTROUTING -o "${UPLINK}" -j MASQUERADE
+
+  # Forward rules
+  iptables -C FORWARD -i "${UPLINK}" -o "${WLAN}" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || \
+    iptables -A FORWARD -i "${UPLINK}" -o "${WLAN}" -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+  iptables -C FORWARD -i "${WLAN}" -o "${UPLINK}" -j ACCEPT 2>/dev/null || \
+    iptables -A FORWARD -i "${WLAN}" -o "${UPLINK}" -j ACCEPT
+
+  echo "[ap] Starting dhcpd on ${WLAN}"
+  mkdir -p /var/lib/dhcp /var/run
+  touch "${DHCPD_LEASES}"
+
+  # Stop old instance if any
+  if [ -f "${DHCPD_PID}" ]; then
+    kill "$(cat "${DHCPD_PID}")" 2>/dev/null || true
+    rm -f "${DHCPD_PID}"
+  fi
+
+  # ISC dhcpd: -4 IPv4, -q quiet, -pf pidfile, -lf leasefile, -cf config
+  dhcpd -4 -q -pf "${DHCPD_PID}" -lf "${DHCPD_LEASES}" -cf "${DHCPD_CONF}" "${WLAN}"
+
+  echo "[ap] Starting hostapd"
+  # -B background, -P pidfile
+  hostapd -B -P "${HOSTAPD_PID}" "${HOSTAPD_CONF}"
+
+  echo "[ap] OK: SSID waybeam-01 on ${WLAN}, subnet 10.6.0.0/24, uplink ${UPLINK}"
+}
+
+stop_ap() {
+  echo "[ap] Stopping hostapd"
+  if [ -f "${HOSTAPD_PID}" ]; then
+    kill "$(cat "${HOSTAPD_PID}")" 2>/dev/null || true
+    rm -f "${HOSTAPD_PID}"
+  else
+    killall hostapd 2>/dev/null || true
+  fi
+
+  echo "[ap] Stopping dhcpd"
+  if [ -f "${DHCPD_PID}" ]; then
+    kill "$(cat "${DHCPD_PID}")" 2>/dev/null || true
+    rm -f "${DHCPD_PID}"
+  else
+    killall dhcpd 2>/dev/null || true
+  fi
+
+  echo "[ap] Removing NAT rules"
+  iptables -t nat -D POSTROUTING -o "${UPLINK}" -j MASQUERADE 2>/dev/null || true
+  iptables -D FORWARD -i "${UPLINK}" -o "${WLAN}" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
+  iptables -D FORWARD -i "${WLAN}" -o "${UPLINK}" -j ACCEPT 2>/dev/null || true
+
+  echo "[ap] Bringing down ${WLAN}"
+  ip addr flush dev "${WLAN}" 2>/dev/null || true
+  ip link set "${WLAN}" down 2>/dev/null || true
+}
+
+case "${1:-}" in
+  start) start_ap ;;
+  stop) stop_ap ;;
+  restart) stop_ap; start_ap ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+    ;;
+esac
+
+exit 0
