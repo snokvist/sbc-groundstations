@@ -18,6 +18,7 @@ endef
 define WIFIBROADCAST_NG_INSTALL_TARGET_CMDS
 	$(INSTALL) -m 755 -d $(TARGET_DIR)/etc
 	$(INSTALL) -m 644 -t $(TARGET_DIR)/etc $(WIFIBROADCAST_NG_PKGDIR)/files/gs.key
+	$(INSTALL) -m 644 -t $(TARGET_DIR)/etc $(WIFIBROADCAST_NG_PKGDIR)/files/drone.key
 
 	$(INSTALL) -m 755 -d $(TARGET_DIR)/etc/init.d
 
