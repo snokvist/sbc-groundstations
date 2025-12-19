@@ -1,4 +1,4 @@
-config BR2_PACKAGE_WIFIBROADCAST_NG
+config BR2_PACKAGE_WFB_BINS_ONLY
 	bool "wifibroadcast-ng"
 	select BR2_PACKAGE_LIBPCAP
 	select BR2_PACKAGE_LIBSODIUM
