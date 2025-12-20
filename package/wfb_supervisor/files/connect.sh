@@ -54,8 +54,8 @@ set_config() {
     PSK="$(fw_printenv -n wlanpass 2>/dev/null || echo waybeam-01)"
     FREQ="$(fw_printenv -n wlanfreq 2>/dev/null || echo 5805)"   # e.g. 5805 for ch161
 
-    cat > /tmp/wpa_supplicant.conf <<EOF
-ctrl_interface=/var/run/wpa_supplicant
+    # Write wpa_supplicant config
+    cat > "$WPACONF" <<EOF
 update_config=0
 
 network={
@@ -69,11 +69,23 @@ EOF
 
     # Only restrict frequency if user provided one
     if [ -n "$FREQ" ] && [ "$FREQ" != "0" ]; then
-        echo "    freq_list=$FREQ" >> /tmp/wpa_supplicant.conf
+        echo "    freq_list=$FREQ" >> "$WPACONF"
     fi
 
-    echo "}" >> /tmp/wpa_supplicant.conf
+    echo "}" >> "$WPACONF"
+
+    # Only enable the control socket if wpa_cli exists
+    if have wpa_cli; then
+        # Put it at the top of the file
+        tmp="${WPACONF}.tmp"
+        {
+            echo "ctrl_interface=/var/run/wpa_supplicant"
+            cat "$WPACONF"
+        } > "$tmp"
+        mv -f "$tmp" "$WPACONF"
+    fi
 }
+
 
 
 detect_and_load_driver() {
