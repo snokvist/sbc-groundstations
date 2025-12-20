@@ -1,8 +1,6 @@
 #!/bin/sh
 set -eu
 
-#mcs2 echo 0x0e > /proc/net/rtl88x2eu/wlan0/rate_ctl
-
 IFACE="${IFACE:-wlan0}"
 
 # Where to keep runtime state
@@ -61,7 +59,6 @@ EOF
 set_config() {
     SSID="$(fw_printenv -n wlanssid 2>/dev/null || echo waybeam-01)"
     PSK="$(fw_printenv -n wlanpass 2>/dev/null || echo waybeam-01)"
-    FREQ="$(fw_printenv -n wlanfreq 2>/dev/null || echo 5805)"   # e.g. 5805 for ch161
 
     # Write wpa_supplicant config
     cat > "$WPACONF" <<EOF
@@ -75,11 +72,6 @@ network={
     pairwise=CCMP
     group=CCMP
 EOF
-
-    # Only restrict frequency if user provided one
-    if [ -n "$FREQ" ] && [ "$FREQ" != "0" ]; then
-        echo "    freq_list=$FREQ" >> "$WPACONF"
-    fi
 
     echo "}" >> "$WPACONF"
 
