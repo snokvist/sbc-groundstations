@@ -20,6 +20,14 @@ define WFB_SUPERVISOR_INSTALL_TARGET_CMDS
 	$(INSTALL) -m 644 -t $(TARGET_DIR)/etc $(WFB_SUPERVISOR_PKGDIR)/files/cluster_supervisor.conf
 	$(INSTALL) -m 644 -t $(TARGET_DIR)/etc $(WFB_SUPERVISOR_PKGDIR)/files/wfb.conf
 	$(INSTALL) -m 644 -t $(TARGET_DIR)/etc $(WFB_SUPERVISOR_PKGDIR)/files/wifi_supervisor.conf
+	$(INSTALL) -m 644 -t $(TARGET_DIR)/etc $(WFB_SUPERVISOR_PKGDIR)/files/hostapd.conf
+	$(INSTALL) -m 644 -t $(TARGET_DIR)/etc $(WFB_SUPERVISOR_PKGDIR)/files/dhcpcd.conf
+
+	$(INSTALL) -m 755 -d $(TARGET_DIR)/etc/init.d
+	$(INSTALL) -m 0755 -t $(TARGET_DIR)/etc/init.d $(WFB_SUPERVISOR_PKGDIR)/files/S50ap
+
+
+
 
 	# Wrapper "alias" that forces a config
 	$(INSTALL) -D -m 0755 /dev/null $(TARGET_DIR)/usr/bin/wifi_supervisor
