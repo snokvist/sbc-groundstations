@@ -13,8 +13,8 @@ UPLINK="eth0"
 
 AP_ADDR="10.6.0.1/24"
 
-HOSTAPD_CONF="/etc/hostapd/hostapd.conf"
-DHCPD_CONF="/etc/dhcp/dhcpd.conf"
+HOSTAPD_CONF="/etc/hostapd.conf"
+DHCPD_CONF="/etc/dhcpd.conf"
 DHCPD_LEASES="/var/lib/dhcp/dhcpd.leases"
 DHCPD_PID="/var/run/dhcpd.${WLAN}.pid"
 
