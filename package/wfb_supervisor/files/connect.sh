@@ -36,7 +36,14 @@ case "$1" in
     ip addr flush dev "$interface" 2>/dev/null || true
     ip addr add "$ip/$subnet" dev "$interface"
     ip link set "$interface" up
-    ip route replace default via "$router" dev "$interface" 2>/dev/null || true
+
+    # inside bound|renew)
+    metric=200
+    [ "$interface" = "eth0" ] && metric=10
+    ip route replace default via "$router" dev "$interface" metric "$metric" 2>/dev/null || true
+
+
+
     # DNS
     : > /etc/resolv.conf
     for s in $dns; do
