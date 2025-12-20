@@ -1,27 +1,37 @@
 #!/bin/sh
-# set_connection.sh — runtime HT(11n) helpers (NO hostapd.conf edits)
-# - Limit HT MCS (5 GHz): iw dev IFACE set bitrates ht-mcs-5 <idx...>
-# - Change channel/width (5 GHz HT20/HT40±): ALWAYS via hostapd_cli chan_switch (CSA)
+# conn_ctrl.sh — runtime HT(11n) helpers (NO hostapd.conf edits)
+#
+# Features:
+#   - HT MCS mask (5 GHz): iw dev IFACE set bitrates ht-mcs-5 <idx...>
+#       * supports ranges like 0-2, 1-6 and mixed lists like "2 4-5"
+#       * NOTE: many drivers only apply masks when rate-control updates; see KICK below
+#
+#   - Channel/width (5 GHz HT20/HT40±): hostapd_cli chan_switch ONLY (CSA)
+#
+# Optional:
+#   - KICK=1 will disassociate all stations after applying MCS mask (helps some drivers apply changes)
 #
 # Requirements:
-#   - hostapd_cli must be present and able to talk to hostapd on IFACE (PING -> PONG)
-#   - iw must be present for MCS masking and status/confirm
+#   - hostapd_cli + hostapd running with ctrl_interface enabled
+#   - iw installed
 #
 # Usage:
-#   ./set_connection.sh status
-#   ./set_connection.sh confirm
-#   ./set_connection.sh mcs 0-7
-#   ./set_connection.sh mcs 0-3
-#   ./set_connection.sh mcs 0-2
-#   ./set_connection.sh mcs 1-6
-#   ./set_connection.sh mcs clear
-#   ./set_connection.sh width 20 161
-#   ./set_connection.sh width 40- 161
+#   ./conn_ctrl.sh status
+#   ./conn_ctrl.sh confirm
+#   ./conn_ctrl.sh mcs 0-7
+#   ./conn_ctrl.sh mcs 0-3
+#   ./conn_ctrl.sh mcs 0-2
+#   ./conn_ctrl.sh mcs 2 4-5
+#   KICK=1 ./conn_ctrl.sh mcs 0-2
+#   ./conn_ctrl.sh mcs clear
+#   ./conn_ctrl.sh width 20 161
+#   ./conn_ctrl.sh width 40- 161
 #
 set -eu
 
 IFACE="${IFACE:-wlan0}"
 STATE="/tmp/wifi_htctl.${IFACE}.state"
+KICK="${KICK:-0}"   # set to 1 to disassociate stations after applying MCS mask
 
 have() { command -v "$1" >/dev/null 2>&1; }
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -96,7 +106,7 @@ expand_mcs_tokens() {
         case "$a" in *[!0-9]*|"") die "bad MCS range start '$a' (from '$tok')" ;; esac
         case "$b" in *[!0-9]*|"") die "bad MCS range end '$b' (from '$tok')" ;; esac
         [ "$a" -le "$b" ] || die "bad MCS range '$tok' (start > end)"
-        [ "$a" -le 7 ] && [ "$b" -le 7 ] || die "MCS range '$tok' outside 0..7 (you asked for no MIMO)"
+        [ "$a" -le 7 ] && [ "$b" -le 7 ] || die "MCS range '$tok' outside 0..7 (HT 1SS range)"
         i="$a"
         while [ "$i" -le "$b" ]; do
           out="${out}${out:+ }$i"
@@ -105,12 +115,33 @@ expand_mcs_tokens() {
         ;;
       *)
         case "$tok" in *[!0-9]*|"") die "bad MCS index '$tok' (use digits or ranges like 0-2)" ;; esac
-        [ "$tok" -le 7 ] || die "MCS '$tok' > 7 (implies more spatial streams). Use 0..7 only."
+        [ "$tok" -le 7 ] || die "MCS '$tok' > 7 (HT 2SS+ range). Use 0..7 only."
         out="${out}${out:+ }$tok"
         ;;
     esac
   done
   echo "$out"
+}
+
+# Best-effort: list station MACs using hostapd_cli all_sta
+list_sta_macs() {
+  # Lines that are exactly MAC addresses (aa:bb:cc:dd:ee:ff)
+  hostapd_cli -i "$IFACE" all_sta 2>/dev/null | awk '
+    /^[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]$/ {
+      print $0
+    }'
+}
+
+kick_stas() {
+  hostapd_ping || return 0
+  macs="$(list_sta_macs || true)"
+  [ -n "$macs" ] || return 0
+
+  echo "[wifi] KICK=1 set: disassociating stations to refresh rates"
+  for mac in $macs; do
+    # reason code 8 = disassociated because sending station is leaving (reasonable generic)
+    hostapd_cli -i "$IFACE" disassociate "$mac" 8 >/dev/null 2>&1 || true
+  done
 }
 
 do_status() {
@@ -145,12 +176,13 @@ do_confirm() {
     }'
   echo
   echo "== last requested mask: ${wanted:-"(none)"} =="
+  echo "Tip: If tx MCS doesn’t change after setting a mask, generate some downlink traffic or use KICK=1."
 }
 
 do_mcs() {
   need_root
   need_tools
-  [ $# -ge 1 ] || die "mcs: need: clear | 0-7 | 0-3 | <list/ranges...> (e.g. '0-2' or '0 1 3-5')"
+  [ $# -ge 1 ] || die "mcs: need: clear | 0-7 | 0-3 | <list/ranges...> (e.g. '0-2' or '2 4-5')"
 
   case "$1" in
     clear)
@@ -160,22 +192,26 @@ do_mcs() {
       ;;
     0-7)
       iw dev "$IFACE" set bitrates ht-mcs-5 0 1 2 3 4 5 6 7
-      save_state MCS "0-7"
-      echo "[ok] limited HT MCS on 5GHz to 0..7 (1SS) on $IFACE"
+      save_state MCS "0 1 2 3 4 5 6 7"
+      echo "[ok] set HT MCS mask on 5GHz to: 0 1 2 3 4 5 6 7"
       ;;
     0-3)
       iw dev "$IFACE" set bitrates ht-mcs-5 0 1 2 3
-      save_state MCS "0-3"
-      echo "[ok] limited HT MCS on 5GHz to 0..3 (1SS) on $IFACE"
+      save_state MCS "0 1 2 3"
+      echo "[ok] set HT MCS mask on 5GHz to: 0 1 2 3"
       ;;
     *)
       expanded="$(expand_mcs_tokens "$@")"
       # shellcheck disable=SC2086
       iw dev "$IFACE" set bitrates ht-mcs-5 $expanded
       save_state MCS "$expanded"
-      echo "[ok] limited HT MCS on 5GHz to: $expanded on $IFACE"
+      echo "[ok] set HT MCS mask on 5GHz to: $expanded"
       ;;
   esac
+
+  if [ "$KICK" = "1" ]; then
+    kick_stas
+  fi
 
   echo "Run: $0 confirm"
 }
@@ -228,10 +264,11 @@ do_width() {
 
 do_help() {
   cat <<EOF
-set_connection.sh — runtime HT(11n) helpers (NO hostapd.conf edits)
+conn_ctrl.sh — runtime HT(11n) helpers (NO hostapd.conf edits)
 
 Env:
   IFACE=wlan0
+  KICK=1    (optional: disassociate all stations after applying MCS mask)
 
 Commands:
   status
@@ -245,16 +282,15 @@ Commands:
         $0 mcs 0-2
         $0 mcs 0-4
         $0 mcs 1-6
-        $0 mcs 0 1 3-5
+        $0 mcs 2 4-5
+        KICK=1 $0 mcs 0-2
 
   width 20  <channel|freqMHz>
   width 40+ <channel|freqMHz>
   width 40- <channel|freqMHz>
       Uses hostapd_cli chan_switch ONLY.
-
-      Examples:
-        $0 width 20 161
-        $0 width 40- 161   # HT40+ is invalid on ch161; 40- is the valid direction
+      Example:
+        $0 width 40- 161
 
 Allowed 5 GHz channels:
   $ALLOWED_CH_5G
