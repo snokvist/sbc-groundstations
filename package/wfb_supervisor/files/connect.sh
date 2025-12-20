@@ -171,7 +171,7 @@ start_client() {
         exit 1
     fi
 
-    echo "[wifi] Started. Config: SSID=$(fw_get wlanssid "OpenIPC") FREQ=$(fw_get wlanfreq "5200")"
+    echo "[wifi] Started. Config: SSID=$(fw_get wlanssid "OpenIPC") FREQ=$(fw_get wlanfreq "5805")"
 }
 
 stop_client() {
