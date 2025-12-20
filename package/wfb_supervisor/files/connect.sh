@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 
+#mcs2 echo 0x0e > /proc/net/rtl88x2eu/wlan0/rate_ctl
+
 IFACE="${IFACE:-wlan0}"
 
 # Where to keep runtime state
