@@ -28,8 +28,6 @@ define WFB_BINS_ONLY_INSTALL_TARGET_CMDS
 	$(INSTALL) -m 755 -t $(TARGET_DIR)/usr/bin $(@D)/wfb_tun
 	$(INSTALL) -m 755 -t $(TARGET_DIR)/usr/bin $(@D)/wfb_keygen
 
-	echo 'WIFIBROADCAST_ENABLED=true' >> $(TARGET_DIR)/etc/default/wifibroadcast
-
 endef
 
 $(eval $(generic-package))
