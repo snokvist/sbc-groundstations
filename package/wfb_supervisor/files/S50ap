@@ -8,7 +8,7 @@
 # Default-Stop:      0 1 6
 ### END INIT INFO
 
-WLAN="wlan0"
+WLAN="waybeam0"
 UPLINK="eth0"
 
 AP_ADDR="10.6.0.1/24"
