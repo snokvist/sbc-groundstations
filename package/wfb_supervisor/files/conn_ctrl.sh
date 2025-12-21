@@ -29,7 +29,7 @@
 #
 set -eu
 
-IFACE="${IFACE:-wlan0}"
+IFACE="${IFACE:-waybeam0}"
 STATE="/tmp/wifi_htctl.${IFACE}.state"
 KICK="${KICK:-0}"   # set to 1 to disassociate stations after applying MCS mask
 
