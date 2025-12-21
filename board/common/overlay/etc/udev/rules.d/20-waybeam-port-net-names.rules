@@ -1,0 +1,8 @@
+# Pin this physical USB port (usb1/1-1) to a fixed interface name
+SUBSYSTEM=="net", ACTION=="add", DEVPATH=="*/usb1/1-1/*/net/*", \
+  ENV{WFB_FIXED_PORT}="1", NAME="waybeam0"
+
+
+SUBSYSTEM=="net", ACTION=="add", ENV{WFB_FIXED_PORT}!="1", ENV{ID_USB_DRIVER}=="rtl88xxau_wfb", NAME="%E{ID_NET_NAME_MAC}"
+SUBSYSTEM=="net", ACTION=="add", ENV{WFB_FIXED_PORT}!="1", ENV{ID_USB_DRIVER}=="rtl88x2cu",       NAME="%E{ID_NET_NAME_MAC}"
+SUBSYSTEM=="net", ACTION=="add", ENV{WFB_FIXED_PORT}!="1", ENV{ID_USB_DRIVER}=="rtl88x2eu",       NAME="%E{ID_NET_NAME_MAC}"
