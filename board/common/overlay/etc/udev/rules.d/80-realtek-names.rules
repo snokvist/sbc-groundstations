@@ -1,0 +1,4 @@
+# Don’t touch the pinned interface
+SUBSYSTEM=="net", ACTION=="add", KERNEL=="wlan*", ENV{ID_USB_DRIVER}=="rtl88x2cu",     NAME="%E{ID_NET_NAME_MAC}"
+SUBSYSTEM=="net", ACTION=="add", KERNEL=="wlan*", ENV{ID_USB_DRIVER}=="rtl88x2eu",     NAME="%E{ID_NET_NAME_MAC}"
+SUBSYSTEM=="net", ACTION=="add", KERNEL=="wlan*", ENV{ID_USB_DRIVER}=="rtl88xxau_wfb", NAME="%E{ID_NET_NAME_MAC}"
