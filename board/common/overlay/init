@@ -1,8 +1,19 @@
 #!/bin/sh
-set -eu
+
+# Don't let a single failing command kill PID 1
+set -u
 
 log() { echo "<0>init: $*" > /dev/kmsg; }
-die() { echo "<3>init: ERROR: $*" > /dev/kmsg; exit 1; }
+err() { echo "<3>init: ERROR: $*" > /dev/kmsg; }
+
+drop_shell() {
+  err "Dropping to shell (PID 1). Fix issue, then 'exec /sbin/init' or reboot."
+  exec /bin/sh
+}
+
+need() {
+  command -v "$1" >/dev/null 2>&1 || { err "Missing command: $1"; drop_shell; }
+}
 
 part_dev() {
   # disk=/dev/mmcblk1 num=3 -> /dev/mmcblk1p3
@@ -23,34 +34,36 @@ dev_to_partnum() {
 }
 
 find_boot_disk() {
-  # Determine the underlying disk for the mounted squashfs root.
-  local mm node disk
-  mm="$(awk '$4=="/" && $5=="squashfs" {print $3; exit}' /proc/self/mountinfo || true)"
-  [ -n "$mm" ] || die "Could not find squashfs / in /proc/self/mountinfo"
+  # Find the disk behind the currently-mounted squashfs root.
+  # mountinfo: field 3=major:minor, 4=mountpoint, 5=fstype
+  mm="$(awk '$4=="/" && $5=="squashfs" {print $3; exit}' /proc/self/mountinfo 2>/dev/null)"
+  [ -n "${mm:-}" ] || { err "Can't find squashfs / in /proc/self/mountinfo"; drop_shell; }
 
-  node="$(basename "$(readlink -f "/sys/dev/block/$mm")")"  # e.g. mmcblk1p2 or sda2
+  # /sys/dev/block/<major:minor> is a symlink; BusyBox readlink is enough (no -f needed)
+  link="$(readlink "/sys/dev/block/$mm" 2>/dev/null)" || { err "readlink /sys/dev/block/$mm failed"; drop_shell; }
+  node="${link##*/}"  # e.g. mmcblk1p2 or sda2
+
   case "$node" in
-    mmcblk*p*) disk="/dev/${node%p*}" ;;
-    nvme*n*p*) disk="/dev/${node%p*}" ;;
-    *)         disk="/dev/${node%[0-9]*}" ;;
+    mmcblk*p*) echo "/dev/${node%p*}" ;;
+    nvme*n*p*) echo "/dev/${node%p*}" ;;
+    *)         echo "/dev/${node%[0-9]*}" ;;
   esac
-  echo "$disk"
 }
 
 find_by_label() {
+  # Try blkid -L if available, else parse blkid output
   if blkid -L "$1" >/dev/null 2>&1; then
-    blkid -L "$1" || true
+    blkid -L "$1" 2>/dev/null || true
   else
     blkid 2>/dev/null | awk -v L="LABEL=\"$1\"" '$0 ~ L {sub(/:.*/,"",$1); print $1; exit}'
   fi
 }
 
 wait_for_label() {
-  # usage: wait_for_label LABEL seconds
-  local label="$1" t="$2" dev
+  label="$1"; t="$2"
   while [ "$t" -gt 0 ]; do
     dev="$(find_by_label "$label" || true)"
-    [ -n "$dev" ] && { echo "$dev"; return 0; }
+    [ -n "${dev:-}" ] && { echo "$dev"; return 0; }
     t=$((t-1))
     sleep 1
   done
@@ -58,94 +71,93 @@ wait_for_label() {
 }
 
 grow_ext4_to_end_best_effort() {
-  # Best-effort: resize partition to 100%, then resize2fs if available.
-  local disk="$1" partdev="$2" pnum
+  disk="$1"; partdev="$2"
   pnum="$(dev_to_partnum "$partdev")"
-  [ -n "$pnum" ] || return 0
+  [ -n "${pnum:-}" ] || return 0
 
   if command -v parted >/dev/null 2>&1; then
-    log "Growing overlay partition $partdev (part $pnum) to 100% (best-effort)"
+    log "Growing $partdev (part $pnum) to end of disk (best-effort)"
     parted --fix -s "$disk" resizepart "$pnum" 100% || true
-    partprobe "$disk" 2>/dev/null || true
+    command -v partprobe >/dev/null 2>&1 && partprobe "$disk" >/dev/null 2>&1 || true
   fi
 
   if command -v resize2fs >/dev/null 2>&1; then
-    # If e2fsck exists, do a quick preen; otherwise just try resize2fs.
-    if command -v e2fsck >/dev/null 2>&1; then
-      e2fsck -pf "$partdev" || true
-    fi
-    resize2fs "$partdev" || true
+    command -v e2fsck >/dev/null 2>&1 && e2fsck -pf "$partdev" >/dev/null 2>&1 || true
+    resize2fs "$partdev" >/dev/null 2>&1 || true
   fi
 }
 
 ensure_big_overlayfs() {
-  local disk="$1" overlay_dev
+  disk="$1"
 
   overlay_dev="$(find_by_label overlayfs || true)"
-  if [ -n "$overlay_dev" ]; then
+  if [ -n "${overlay_dev:-}" ]; then
     grow_ext4_to_end_best_effort "$disk" "$overlay_dev"
     echo "$overlay_dev"
     return 0
   fi
 
-  log "overlayfs label not found; creating one big overlay partition to end of disk"
+  need parted
+  need mke2fs
 
-  # Start after the last partition end (+8MiB gap) and extend to 100%
-  local last_end start_mib part_num new_part
+  log "Creating overlayfs partition to end of disk"
+
+  # Start after last partition end (+8MiB gap), extend to 100%
   last_end="$(parted -s "$disk" unit MiB print | awk '/^ [0-9]+/ {gsub(/MiB/,"",$3); print $3}' | sort -n | tail -1 | cut -d. -f1)"
-  [ -n "$last_end" ] || die "Failed to read last partition end from parted"
-  start_mib=$(( last_end + 8 ))
+  [ -n "${last_end:-}" ] || { err "parted couldn't read last partition end"; drop_shell; }
 
-  parted --fix -s "$disk" mkpart primary ext4 "${start_mib}MiB" 100%
-  partprobe "$disk" 2>/dev/null || true
+  start_mib=$(( last_end + 8 ))
+  parted --fix -s "$disk" mkpart primary ext4 "${start_mib}MiB" 100% || { err "mkpart failed"; drop_shell; }
+  command -v partprobe >/dev/null 2>&1 && partprobe "$disk" >/dev/null 2>&1 || true
 
   part_num="$(parted -s "$disk" print | awk '/^ [0-9]+/ {print $1}' | tail -1)"
-  [ -n "$part_num" ] || die "Failed to determine new partition number"
-  parted -s "$disk" name "$part_num" overlayfs
+  [ -n "${part_num:-}" ] || { err "Couldn't determine new partition number"; drop_shell; }
+
+  parted -s "$disk" name "$part_num" overlayfs || true
 
   new_part="$(part_dev "$disk" "$part_num")"
   log "Formatting $new_part as ext4 label overlayfs"
-  mke2fs -t ext4 -F "$new_part" -L overlayfs >/dev/null
+  mke2fs -t ext4 -F "$new_part" -L overlayfs >/dev/null || { err "mke2fs failed"; drop_shell; }
 
-  overlay_dev="$(wait_for_label overlayfs 10)" || die "overlayfs not visible after creation"
+  overlay_dev="$(wait_for_label overlayfs 10)" || { err "overlayfs not visible after creation"; drop_shell; }
   echo "$overlay_dev"
 }
 
-# --- early mounts ---
-mount -t proc  proc  /proc  || die "mount /proc failed"
-mount -t sysfs sys   /sys   || die "mount /sys failed"
-mount -t tmpfs tmpfs /tmp   || die "mount /tmp failed"
+# ---- early mounts (do this before logging a lot) ----
+mount -t proc  proc  /proc  || drop_shell
+mount -t sysfs sys   /sys   || drop_shell
+mount -t tmpfs tmpfs /tmp   || drop_shell
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
 
 # Optional splash (ignore errors)
-fbv -c -u -i -y /usr/share/splash.png >/dev/null 2>&1 &
+command -v fbv >/dev/null 2>&1 && fbv -c -u -i -y /usr/share/splash.png >/dev/null 2>&1 &
 
 BOOT_DISK="$(find_boot_disk)"
-export BOOT_DISK
 log "BOOT_DISK=$BOOT_DISK"
 
+need blkid
 overlay_dev="$(ensure_big_overlayfs "$BOOT_DISK")"
 
-mkdir -p /overlay
-mount "$overlay_dev" /overlay || die "mount overlayfs failed"
+mkdir -p /overlay /mnt
+mount "$overlay_dev" /overlay || { err "mount $overlay_dev /overlay failed"; drop_shell; }
 
-# Optional debug drop
+# Optional debug trigger
 if [ -f /overlay/.initshell ]; then
-  log "Dropping to shell due to /overlay/.initshell"
-  /bin/sh
+  log "Found /overlay/.initshell; dropping to shell"
   rm -f /overlay/.initshell
+  drop_shell
 fi
 
 overlay_rootdir=/overlay/root
 overlay_workdir=/overlay/work
-mkdir -p "$overlay_rootdir" "$overlay_workdir" /mnt
+mkdir -p "$overlay_rootdir" "$overlay_workdir"
 
 mount -t overlay overlay \
   -o lowerdir=/,upperdir="$overlay_rootdir",workdir="$overlay_workdir" \
-  /mnt || die "overlay mount failed"
+  /mnt || { err "overlay mount failed"; drop_shell; }
 
 mkdir -p /mnt/rom
-pivot_root /mnt /mnt/rom || die "pivot_root failed"
+pivot_root /mnt /mnt/rom || { err "pivot_root failed"; drop_shell; }
 
 mount -o move /rom/proc    /proc
 mount -o move /rom/sys     /sys
