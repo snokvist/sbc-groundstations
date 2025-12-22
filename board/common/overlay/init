@@ -158,11 +158,3 @@ mount -o noatime,move /rom/sys /sys
 mount -o noatime,move /rom/dev /dev
 mount -o noatime,move /rom/overlay /overlay
 mount -o noatime,move /rom/tmp /tmp
-
-if [ "$ROOT_DEV" = "/dev/mmcblk1p1" ]; then  # booted from sd
-    # Use SD card's VFAT partition as DVR
-    if [ -b /dev/mmcblk1p3 ] && file -s /dev/mmcblk1p3 | grep -q 'FAT'; then
-        DEV="/dev/mmcblk1p3"
-		mount $DEV /media/
-    fi
-fi
