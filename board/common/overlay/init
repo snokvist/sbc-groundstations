@@ -1,133 +1,305 @@
 #!/bin/sh
+#
+# /init (early userspace) — robust overlay/DVR partition setup + optional sysupgrade
+# Fixes:
+#  - BusyBox mke2fs does NOT support: -t ext4  -> use: mke2fs -F -L LABEL DEV
+#  - Ensure /mnt and /overlay exist before mounting
+#  - Quote variables + guard against empty devices
+#  - Prefer finding root device by PARTLABEL=rootfs (from kernel cmdline) when possible
+#
 
-on_exit() {
-	mountpoint -q /proc && umount /proc
-	exec /sbin/init "$*"
+set -eu
+
+# -------- helpers --------
+
+log_kmsg() {
+	# usage: log_kmsg <prio> <msg>
+	# prio: 0..7 (0 emerg, 3 err, 4 warn, 6 info)
+	echo "<$1>autoupdate: $2" > /dev/kmsg 2>/dev/null || true
+	echo "autoupdate: $2"
 }
 
-trap on_exit EXIT
+wait_block() {
+	# usage: wait_block /dev/mmcblkXpN [seconds]
+	dev="$1"
+	secs="${2:-10}"
+	i=0
+	while [ ! -b "$dev" ] && [ "$i" -lt "$secs" ]; do
+		i=$((i+1))
+		sleep 1
+	done
+	[ -b "$dev" ]
+}
+
+get_cmdline_var() {
+	# Extract var=value from /proc/cmdline
+	# usage: get_cmdline_var root
+	key="$1"
+	for w in $(cat /proc/cmdline 2>/dev/null || true); do
+		case "$w" in
+			"$key"=*)
+				echo "${w#*=}"
+				return 0
+				;;
+		esac
+	done
+	return 1
+}
+
+find_boot_disk() {
+	# Best-effort discovery of the disk containing rootfs
+	# Prefer root=PARTLABEL=... then blkid lookup.
+	# Fallback to scanning mountinfo major:minor (legacy).
+	root_spec="$(get_cmdline_var root || true)"
+
+	case "$root_spec" in
+		PARTLABEL=*)
+			lbl="${root_spec#PARTLABEL=}"
+			root_part="$(blkid -t "PARTLABEL=$lbl" -o device 2>/dev/null || true)"
+			;;
+		PARTUUID=*)
+			pu="${root_spec#PARTUUID=}"
+			root_part="$(blkid -t "PARTUUID=$pu" -o device 2>/dev/null || true)"
+			;;
+		UUID=*)
+			u="${root_spec#UUID=}"
+			root_part="$(blkid -t "UUID=$u" -o device 2>/dev/null || true)"
+			;;
+		/dev/*)
+			root_part="$root_spec"
+			;;
+		*)
+			root_part=""
+			;;
+	esac
+
+	if [ -n "${root_part:-}" ] && [ -b "$root_part" ]; then
+		# strip partition suffix: /dev/mmcblk1p1 -> /dev/mmcblk1
+		echo "${root_part%p[0-9]*}"
+		return 0
+	fi
+
+	# Fallback: derive from squashfs mount major:minor
+	root_dev="$(grep -w '/.*squashfs' /proc/self/mountinfo 2>/dev/null | awk '{print $3}' | head -n1 || true)"
+	major="${root_dev%:*}"
+	minor="${root_dev#*:}"
+
+	for device in /sys/block/*; do
+		[ -d "$device" ] || continue
+		devnode="/dev/$(basename "$device")"
+
+		# partitions
+		for part in "$device"/"$(basename "$device")"*; do
+			[ -f "$part/dev" ] || continue
+			if grep -q "^$major:$minor$" "$part/dev" 2>/dev/null; then
+				echo "$devnode"
+				return 0
+			fi
+		done
+	done
+
+	return 1
+}
 
 sysupg() {
-    dev=$1
-    mount -t vfat "$dev" /mnt
-    if [ -f "/mnt/${BUILD_CONFIG}.tar.gz" ]; then
-        echo "<0>autoupdate: Starting sysupgrade with ${BUILD_CONFIG}.tar.gz" > /dev/kmsg
-        sysupgrade --archive="/mnt/${BUILD_CONFIG}.tar.gz" --no_reboot 2>&1 | while IFS= read -r line; do
-            echo "<0>autoupdate: $line" > /dev/kmsg
-        done
-        echo "<0>autoupdate: Upgrade process completed" > /dev/kmsg
-        umount "$dev"
-        echo "<0>autoupdate: Please reboot" > /dev/kmsg
-        sleep infinity
-    else
-        echo "<1>autoupdate: Update file ${BUILD_CONFIG}.tar.gz not found on $dev" > /dev/kmsg
-        umount "$dev"
-    fi
+	dev="$1"
+
+	# mount the device and attempt sysupgrade from /mnt/${BUILD_CONFIG}.tar.gz
+	mount -t vfat "$dev" /mnt
+
+	if [ -f "/mnt/${BUILD_CONFIG}.tar.gz" ]; then
+		log_kmsg 0 "Starting sysupgrade with ${BUILD_CONFIG}.tar.gz from $dev"
+		sysupgrade --archive="/mnt/${BUILD_CONFIG}.tar.gz" --no_reboot 2>&1 | while IFS= read -r line; do
+			log_kmsg 0 "$line"
+		done
+		log_kmsg 0 "Upgrade process completed"
+		umount /mnt || true
+		log_kmsg 0 "Please reboot"
+		sleep infinity
+	else
+		log_kmsg 4 "Update file ${BUILD_CONFIG}.tar.gz not found on $dev"
+		umount /mnt || true
+	fi
 }
 
+on_exit() {
+	# Try to clean up proc and continue into real init
+	mountpoint -q /proc && umount /proc || true
+	exec /sbin/init "$@"
+}
+
+trap 'on_exit "$@"' EXIT
+
+# -------- early mounts --------
+
+mkdir -p /proc /sys /tmp /mnt /overlay /dev
 mount -t proc proc /proc || exit 1
 mount -t sysfs sys /sys || exit 1
-mount -t tmp /tmp || exit 1
+# Note: BusyBox uses "tmpfs"
+mount -t tmpfs tmpfs /tmp || exit 1
 
-fbv -c -u -i -y /usr/share/splash.png &
+# Optional splash (ignore failure)
+fbv -c -u -i -y /usr/share/splash.png >/dev/null 2>&1 &
 
-# Extract root device info from mountinfo
-root_dev=$(grep -w '/.*squashfs' /proc/self/mountinfo | awk '{print $3}')
+# -------- determine boot disk --------
 
-# root_dev format is "major:minor" (e.g., "179:2")
-major=$(echo "$root_dev" | cut -d: -f1)
-minor=$(echo "$root_dev" | cut -d: -f2)
-
-# Find the block device with this major/minor
-for device in /sys/block/*; do
-    [ -d "$device" ] || continue
-    
-    device_name="/dev/$(basename "$device")"
-    
-    # Check if this is the disk containing our root partition
-    if find "$device" -type f -name "dev" -exec cat {} \; | grep -q "^$major:$minor$"; then
-        echo "$device_name"
-    fi
-    
-    # Check partitions of this disk
-    for part in "$device"/"$(basename "$device")"*; do
-        [ -f "$part/dev" ] || continue
-        if grep -q "^$major:$minor$" "$part/dev" 2>/dev/null; then
-            export BOOT_DISK="$device_name"
-        fi
-    done
-done
-
-overlayfs_dev=$(blkid  | grep 'LABEL="overlayfs"'| cut -d : -f 1)
-if [ -z $overlayfs_dev ]
-then
-
-  ROOT_PART_NUM=1
-  ROOT_START=$(parted -s $BOOT_DISK unit MiB print | awk '/^ *1 / {print $2}' | tr -d 'MiB')
-  ROOT_END=$(parted -s $BOOT_DISK unit MiB print | awk '/^ *1 / {print $3}' | tr -d 'MiB')
-  ROOT_SIZE=$(echo "$ROOT_END - $ROOT_START" | bc)
-  NEW_ROOT_SIZE=$(echo "$ROOT_SIZE * 2" | bc | cut -d. -f1)
-  NEW_ROOT_END=$(echo "$ROOT_END + $NEW_ROOT_SIZE" | bc | cut -d. -f1)
-  parted --fix -s $BOOT_DISK resizepart $ROOT_PART_NUM "${NEW_ROOT_END}MiB"
-
-  FIRST_END=$(parted -s $BOOT_DISK unit MiB print | awk '/^ [0-9]+/ {print $3}' | tr -d 'MiB' | head -n1 | cut -d. -f1)
-  LAST_END=$(parted -s $BOOT_DISK unit MiB print | awk '/^ [0-9]+/ {print $3}' | tr -d 'MiB' | sort -n | tail -1 | cut -d. -f1)
-  FIRST_START=$(parted -s $BOOT_DISK unit MiB print | awk '/^ [0-9]+/ {print $2}' | tr -d 'MiB' | head -n1 | cut -d. -f1)
-  FIRST_SIZE=$(( FIRST_END - FIRST_START ))
-  NEW_SIZE=$(( FIRST_SIZE + 1 ))
-  START_MB=$(( LAST_END + 20 ))
-  END_MB=$(( START_MB + NEW_SIZE ))
-  parted --fix -s $BOOT_DISK mkpart primary ext4 "${START_MB}MiB" "${END_MB}MiB"
-  partprobe $BOOT_DISK
-  PART_NUM=$(parted -s $BOOT_DISK print | awk '/^ [0-9]+/ {print $1}' | tail -1)
-  parted -s $BOOT_DISK name $PART_NUM overlayfs
-  NEW_PARTITION="${BOOT_DISK}p${PART_NUM}"
-  mke2fs -t ext4 -F "$NEW_PARTITION" -L overlayfs
-  overlayfs_dev=$(blkid  | grep 'LABEL="overlayfs"'| cut -d : -f 1)
+BOOT_DISK="$(find_boot_disk || true)"
+if [ -z "${BOOT_DISK:-}" ]; then
+	log_kmsg 3 "Failed to determine BOOT_DISK; cannot create overlay/DVR partitions"
+	exit 1
 fi
-mount $overlayfs_dev /overlay
+log_kmsg 6 "BOOT_DISK=$BOOT_DISK"
 
-if [ -f /overlay/.initshell ]
-then
-  /bin/sh
-  rm /overlay/.initshell
-fi
+# -------- ensure overlayfs partition exists --------
 
-dvr_dev=$(blkid  | grep 'LABEL="DVR"'| cut -d : -f 1)
-if [ -z $dvr_dev ]
-then
-  LAST_END=$(parted -s $BOOT_DISK print | awk '/^ [0-9]+/ {print $3}' | tr -d 'MB' | sort -n | tail -1)
-  START_MB=$(( LAST_END + 21 ))
-  parted --fix -s $BOOT_DISK mkpart primary fat32 "${START_MB}MB" 100%
-  partprobe $BOOT_DISK
-  PART_NUM=$(parted -s $BOOT_DISK print | awk '/^ [0-9]+/ {print $1}' | tail -1)
-  parted -s $BOOT_DISK name $PART_NUM DVR
-  NEW_PARTITION="${BOOT_DISK}p${PART_NUM}"
-  mkfs.vfat $NEW_PARTITION -n DVR
-  dvr_dev=$(blkid  | grep 'LABEL="DVR"'| cut -d : -f 1)
+overlayfs_dev="$(blkid 2>/dev/null | grep 'LABEL="overlayfs"' | cut -d: -f1 || true)"
+
+if [ -z "$overlayfs_dev" ]; then
+	log_kmsg 6 "overlayfs partition not found; creating..."
+
+	ROOT_PART_NUM=1
+
+	# Get partition #1 bounds in MiB (integer)
+	ROOT_START="$(parted -s "$BOOT_DISK" unit MiB print | awk '/^ *1 / {print $2}' | tr -d 'MiB' | cut -d. -f1)"
+	ROOT_END="$(parted -s "$BOOT_DISK" unit MiB print | awk '/^ *1 / {print $3}' | tr -d 'MiB' | cut -d. -f1)"
+
+	if [ -z "$ROOT_START" ] || [ -z "$ROOT_END" ]; then
+		log_kmsg 3 "Could not read root partition bounds from parted"
+		exit 1
+	fi
+
+	ROOT_SIZE=$((ROOT_END - ROOT_START))
+	NEW_ROOT_SIZE=$((ROOT_SIZE * 2))
+	NEW_ROOT_END=$((ROOT_END + NEW_ROOT_SIZE))
+
+	# This may emit "Not all space is used" warnings; we allow parted to fix GPT due to --fix
+	parted --fix -s "$BOOT_DISK" resizepart "$ROOT_PART_NUM" "${NEW_ROOT_END}MiB"
+
+	# Compute size for overlayfs based on first partition size (+1 MiB),
+	# place it after the last current partition with a gap.
+	FIRST_END="$(parted -s "$BOOT_DISK" unit MiB print | awk '/^ [0-9]+/ {print $3}' | tr -d 'MiB' | head -n1 | cut -d. -f1)"
+	FIRST_START="$(parted -s "$BOOT_DISK" unit MiB print | awk '/^ [0-9]+/ {print $2}' | tr -d 'MiB' | head -n1 | cut -d. -f1)"
+	LAST_END="$(parted -s "$BOOT_DISK" unit MiB print | awk '/^ [0-9]+/ {print $3}' | tr -d 'MiB' | sort -n | tail -1 | cut -d. -f1)"
+
+	FIRST_SIZE=$((FIRST_END - FIRST_START))
+	NEW_SIZE=$((FIRST_SIZE + 1))
+
+	START_MB=$((LAST_END + 20))
+	END_MB=$((START_MB + NEW_SIZE))
+
+	parted --fix -s "$BOOT_DISK" mkpart primary ext4 "${START_MB}MiB" "${END_MB}MiB"
+	partprobe "$BOOT_DISK" 2>/dev/null || true
+
+	PART_NUM="$(parted -s "$BOOT_DISK" print | awk '/^ [0-9]+/ {print $1}' | tail -1)"
+	parted -s "$BOOT_DISK" name "$PART_NUM" overlayfs
+
+	NEW_PARTITION="${BOOT_DISK}p${PART_NUM}"
+
+	if ! wait_block "$NEW_PARTITION" 10; then
+		log_kmsg 3 "New overlay partition node did not appear: $NEW_PARTITION"
+		exit 1
+	fi
+
+	# BusyBox mke2fs: no "-t ext4" option — just format the blockdev, label it
+	log_kmsg 6 "Formatting $NEW_PARTITION as ext4 (BusyBox mke2fs) with label overlayfs"
+	mke2fs -F -L overlayfs "$NEW_PARTITION"
+
+	overlayfs_dev="$(blkid 2>/dev/null | grep 'LABEL="overlayfs"' | cut -d: -f1 || true)"
 fi
 
-# Sysupgrade
-. /etc/os-release
-sysupg "$dvr_dev"
-if [ -b /dev/mmcblk1p1 ] && file -s /dev/mmcblk1p1 | grep -q 'FAT'; then
-    sysupg "/dev/mmcblk1p1"
+if [ -z "$overlayfs_dev" ]; then
+	log_kmsg 3 "overlayfs_dev still empty after creation/format; cannot mount overlay"
+	exit 1
 fi
 
-. /etc/default/br-config 2> /dev/null
+# Mount overlay partition
+mkdir -p /overlay
+mount "$overlayfs_dev" /overlay
+
+# Optional debug init shell trigger
+if [ -f /overlay/.initshell ]; then
+	/bin/sh
+	rm -f /overlay/.initshell
+fi
+
+# -------- ensure DVR partition exists --------
+
+dvr_dev="$(blkid 2>/dev/null | grep 'LABEL="DVR"' | cut -d: -f1 || true)"
+
+if [ -z "$dvr_dev" ]; then
+	log_kmsg 6 "DVR partition not found; creating..."
+
+	# Use MiB consistently; create FAT32 to end of disk.
+	LAST_END="$(parted -s "$BOOT_DISK" unit MiB print | awk '/^ [0-9]+/ {print $3}' | tr -d 'MiB' | sort -n | tail -1 | cut -d. -f1)"
+	START_MB=$((LAST_END + 21))
+
+	parted --fix -s "$BOOT_DISK" mkpart primary fat32 "${START_MB}MiB" 100%
+	partprobe "$BOOT_DISK" 2>/dev/null || true
+
+	PART_NUM="$(parted -s "$BOOT_DISK" print | awk '/^ [0-9]+/ {print $1}' | tail -1)"
+	parted -s "$BOOT_DISK" name "$PART_NUM" DVR
+
+	NEW_PARTITION="${BOOT_DISK}p${PART_NUM}"
+	if ! wait_block "$NEW_PARTITION" 10; then
+		log_kmsg 3 "New DVR partition node did not appear: $NEW_PARTITION"
+		exit 1
+	fi
+
+	log_kmsg 6 "Formatting $NEW_PARTITION as FAT (mkfs.vfat) label DVR"
+	mkfs.vfat "$NEW_PARTITION" -n DVR
+
+	dvr_dev="$(blkid 2>/dev/null | grep 'LABEL="DVR"' | cut -d: -f1 || true)"
+fi
+
+# -------- sysupgrade attempts (optional) --------
+
+# BUILD_CONFIG may be in env; otherwise read from /etc/os-release if present
+if [ -f /etc/os-release ]; then
+	. /etc/os-release
+fi
+
+# If BUILD_CONFIG not already set, best-effort derive from ID (optional)
+: "${BUILD_CONFIG:=${ID:-}}"
+
+if [ -n "${BUILD_CONFIG:-}" ]; then
+	if [ -n "${dvr_dev:-}" ] && [ -b "$dvr_dev" ]; then
+		sysupg "$dvr_dev"
+	fi
+
+	# Also try /dev/mmcblk1p1 if it's FAT
+	if [ -b /dev/mmcblk1p1 ] && file -s /dev/mmcblk1p1 2>/dev/null | grep -q 'FAT'; then
+		sysupg "/dev/mmcblk1p1"
+	fi
+else
+	log_kmsg 6 "BUILD_CONFIG not set; skipping sysupgrade checks"
+fi
+
+# -------- setup overlay-on-/mnt then pivot_root --------
+
+# Optional defaults
+. /etc/default/br-config 2>/dev/null || true
 
 overlay_rootdir=/overlay/root
 overlay_workdir=/overlay/work
-mkdir -p $overlay_rootdir $overlay_workdir
+mkdir -p "$overlay_rootdir" "$overlay_workdir"
 
-if ! mount -t overlay overlay -o lowerdir=/,upperdir=$overlay_rootdir,workdir=$overlay_workdir /mnt; then
-	umount /overlay
+# Ensure /mnt exists (for overlay mount target)
+mkdir -p /mnt
+
+if ! mount -t overlay overlay -o "lowerdir=/,upperdir=$overlay_rootdir,workdir=$overlay_workdir" /mnt; then
+	log_kmsg 3 "overlay mount failed; unmounting /overlay and aborting"
+	umount /overlay || true
 	exit 1
 fi
 
 /sbin/pivot_root /mnt /mnt/rom
+
+# Move mounts into new root
 mount -o noatime,move /rom/proc /proc
 mount -o noatime,move /rom/sys /sys
-mount -o noatime,move /rom/dev /dev
-mount -o noatime,move /rom/overlay /overlay
-mount -o noatime,move /rom/tmp /tmp
+mount -o noatime,move /rom/dev /dev || true
+mount -o noatime,move /rom/overlay /overlay || true
+mount -o noatime,move /rom/tmp /tmp || true
+
+# fall through to trap -> exec /sbin/init
+exit 0
