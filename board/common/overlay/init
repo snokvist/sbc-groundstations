@@ -143,22 +143,6 @@ then
   mount $overlayfs_dev /overlay
 fi
 
-if [ -n "$GADGET_MODE_GPIO" ]; then
-  if [ "$(gpioget $GADGET_MODE_GPIO)" = "1" ]; then
-    sleep 1
-    GADGET_MODE_GPIO_STATE=$(gpioget $GADGET_MODE_GPIO)
-  fi
-fi
-if [ "$(gpioget $GADGET_MODE_GPIO_STATE)" = "1" ]
-then
-  echo '<0>gadget_mode: #####################################################################' > /dev/kmsg
-  echo '<0>gadget_mode: #                                                                   #' > /dev/kmsg
-  echo '<0>gadget_mode: #                         Gadget Mode                               #' > /dev/kmsg
-  echo '<0>gadget_mode: #                                                                   #' > /dev/kmsg
-  echo '<0>gadget_mode: #####################################################################' > /dev/kmsg
-  touch /tmp/gadget
-fi
-
 overlay_rootdir=/overlay/root
 overlay_workdir=/overlay/work
 mkdir -p $overlay_rootdir $overlay_workdir
@@ -174,3 +158,11 @@ mount -o noatime,move /rom/sys /sys
 mount -o noatime,move /rom/dev /dev
 mount -o noatime,move /rom/overlay /overlay
 mount -o noatime,move /rom/tmp /tmp
+
+if [ "$ROOT_DEV" = "/dev/mmcblk1p1" ]; then  # booted from sd
+    # Use SD card's VFAT partition as DVR
+    if [ -b /dev/mmcblk1p3 ] && file -s /dev/mmcblk1p3 | grep -q 'FAT'; then
+        DEV="/dev/mmcblk1p3"
+		mount $DEV /media/
+    fi
+fi
