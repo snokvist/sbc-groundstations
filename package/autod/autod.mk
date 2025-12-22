@@ -66,19 +66,4 @@ define AUTOD_INSTALL_INIT_SYSV
 		$(TARGET_DIR)/etc/init.d/S99autod
 endef
 
-# systemd unit (only when BR2_INIT_SYSTEMD=y)
-ifeq ($(BR2_INIT_SYSTEMD),y)
-define AUTOD_INSTALL_SYSTEMD_SERVICE
-	$(INSTALL) -D -m 0644 $(@D)/configs/autod.service \
-		$(TARGET_DIR)/usr/lib/systemd/system/autod.service
-	$(SED) 's|@AUTOD_BIN@|/usr/bin/autod|g' \
-		$(TARGET_DIR)/usr/lib/systemd/system/autod.service
-	$(SED) 's|@AUTOD_CONF@|/etc/autod/autod.conf|g' \
-		$(TARGET_DIR)/usr/lib/systemd/system/autod.service
-	$(SED) 's|@VRX_DIR@|/usr/share/autod/vrx|g' \
-		$(TARGET_DIR)/usr/lib/systemd/system/autod.service
-endef
-AUTOD_INSTALL_TARGET_CMDS += $(AUTOD_INSTALL_SYSTEMD_SERVICE)
-endif
-
 $(eval $(generic-package))
