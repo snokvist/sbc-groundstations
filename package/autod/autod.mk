@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-AUTOD_VERSION = 640747bb6d405c008062f2fdfbe4f069b8eb71dd
+AUTOD_VERSION = 4a5cf4b55219f8757b028a959adfcad008084452
 AUTOD_SITE = https://github.com/snokvist/autod.git
 AUTOD_SITE_METHOD = git
 AUTOD_LICENSE = Proprietary
