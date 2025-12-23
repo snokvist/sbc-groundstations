@@ -33,6 +33,8 @@ define AUTOD_INSTALL_TARGET_CMDS
 	# VRX index
 	$(INSTALL) -D -m 0644 $(@D)/html/autod/vrx_index.html \
 		$(TARGET_DIR)/usr/share/autod/vrx/vrx_index.html
+	$(INSTALL) -D -m 0644 $(@D)/html/autod/esp32_index.html \
+		$(TARGET_DIR)/usr/share/autod/vrx/waybeam_index.html
 
 	# Assets (copy full tree)
 	cp -a $(@D)/html/autod/assets \
