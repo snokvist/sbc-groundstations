@@ -18,10 +18,4 @@ config BR2_PACKAGE_RADXA_ZERO3_GAMMA_DEFAULT_CRTC
 	help
 	  Default CRTC ID compiled into the binary (DEFAULT_CRTC).
 
-config BR2_PACKAGE_RADXA_ZERO3_GAMMA_INSTALL_PRESETS
-	bool "Install example presets to /etc/gamma-presets.ini"
-	default y
-	help
-	  Installs the upstream presets.ini as /etc/gamma-presets.ini.
-
 endif
