@@ -7,6 +7,16 @@ on_exit() {
 
 trap on_exit EXIT
 
+export PATH="/sbin:/bin:/usr/sbin:/usr/bin"
+
+get_mkfs_bin() {
+  for candidate in mkfs.ext4 mke2fs /sbin/mke2fs /usr/sbin/mke2fs; do
+    bin=$(command -v "$candidate" 2>/dev/null || true)
+    [ -n "$bin" ] && echo "$bin" && return 0
+  done
+  return 1
+}
+
 sysupg() {
     dev=$1
     mount -t vfat "$dev" /mnt
@@ -58,34 +68,83 @@ for device in /sys/block/*; do
     done
 done
 
-overlayfs_dev=$(blkid  | grep 'LABEL="overlayfs"'| cut -d : -f 1)
-if [ -z $overlayfs_dev ]
-then
-
-  ROOT_PART_NUM=1
-  ROOT_START=$(parted -s $BOOT_DISK unit MiB print | awk '/^ *1 / {print $2}' | tr -d 'MiB')
-  ROOT_END=$(parted -s $BOOT_DISK unit MiB print | awk '/^ *1 / {print $3}' | tr -d 'MiB')
-  ROOT_SIZE=$(echo "$ROOT_END - $ROOT_START" | bc)
-  NEW_ROOT_SIZE=$(echo "$ROOT_SIZE * 2" | bc | cut -d. -f1)
-  NEW_ROOT_END=$(echo "$ROOT_END + $NEW_ROOT_SIZE" | bc | cut -d. -f1)
-  parted --fix -s $BOOT_DISK resizepart $ROOT_PART_NUM "${NEW_ROOT_END}MiB"
-
-  FIRST_END=$(parted -s $BOOT_DISK unit MiB print | awk '/^ [0-9]+/ {print $3}' | tr -d 'MiB' | head -n1 | cut -d. -f1)
-  LAST_END=$(parted -s $BOOT_DISK unit MiB print | awk '/^ [0-9]+/ {print $3}' | tr -d 'MiB' | sort -n | tail -1 | cut -d. -f1)
-  FIRST_START=$(parted -s $BOOT_DISK unit MiB print | awk '/^ [0-9]+/ {print $2}' | tr -d 'MiB' | head -n1 | cut -d. -f1)
-  FIRST_SIZE=$(( FIRST_END - FIRST_START ))
-  NEW_SIZE=$(( FIRST_SIZE + 1 ))
-  START_MB=$(( LAST_END + 20 ))
-  END_MB=$(( START_MB + NEW_SIZE ))
-  parted --fix -s $BOOT_DISK mkpart primary ext4 "${START_MB}MiB" "${END_MB}MiB"
-  partprobe $BOOT_DISK
-  PART_NUM=$(parted -s $BOOT_DISK print | awk '/^ [0-9]+/ {print $1}' | tail -1)
-  parted -s $BOOT_DISK name $PART_NUM overlayfs
-  NEW_PARTITION="${BOOT_DISK}p${PART_NUM}"
-  mke2fs -t ext4 -F "$NEW_PARTITION" -L overlayfs
-  overlayfs_dev=$(blkid  | grep 'LABEL="overlayfs"'| cut -d : -f 1)
+if [ -z "$BOOT_DISK" ]; then
+  root_part=$(blkid -t PARTLABEL="rootfs" -o device | head -n1)
+  if [ -n "$root_part" ]; then
+    BOOT_DISK=$(echo "$root_part" | sed -E 's/p?[0-9]+$//')
+  fi
 fi
-mount $overlayfs_dev /overlay
+if [ -z "$BOOT_DISK" ]; then
+  root_param=$(sed -n 's/.*root=\([^ ]*\).*/\1/p' /proc/cmdline)
+  case "$root_param" in
+    PARTLABEL=*)
+      root_part=$(blkid -t PARTLABEL="${root_param#PARTLABEL=}" -o device | head -n1)
+      [ -n "$root_part" ] && BOOT_DISK=$(echo "$root_part" | sed -E 's/p?[0-9]+$//')
+      ;;
+    /dev/mmcblk*p*) BOOT_DISK=${root_param%p*} ;;
+    /dev/mmcblk[0-9]*) BOOT_DISK=$(echo "$root_param" | sed -E 's/[0-9]+$//') ;;
+  esac
+fi
+
+find_overlay_dev() {
+  if [ -e /dev/disk/by-partlabel/overlayfs ]; then
+    readlink -f /dev/disk/by-partlabel/overlayfs && return
+  fi
+  for p in /sys/block/*/*; do
+    [ -f "$p/uevent" ] || continue
+    if grep -q '^PARTNAME=overlayfs$' "$p/uevent"; then
+      echo "/dev/$(basename "$p")"
+      return
+    fi
+  done
+  if command -v blkid >/dev/null 2>&1; then
+    blkid -t LABEL="overlayfs" -o device | head -n1 && return
+  fi
+  if command -v lsblk >/dev/null 2>&1; then
+    lsblk -rno NAME,LABEL | awk '$2=="overlayfs"{print "/dev/"$1; exit}' && return
+  fi
+}
+
+wait_overlay_dev() {
+  for _ in 1 2 3 4 5; do
+    dev=$(find_overlay_dev)
+    [ -z "$dev" ] && [ -b "${BOOT_DISK}p2" ] && dev="${BOOT_DISK}p2"
+    if [ -n "$dev" ]; then
+      echo "$dev"
+      return
+    fi
+    sleep 1
+  done
+}
+
+command -v partprobe >/dev/null 2>&1 && partprobe "$BOOT_DISK" 2>/dev/null || true
+overlayfs_dev=$(wait_overlay_dev)
+if [ -z "$overlayfs_dev" ]
+then
+  disk_name=$(basename "$BOOT_DISK")
+  sectors=$(cat /sys/block/$disk_name/size 2>/dev/null || echo 0)
+  sect_size=$(cat /sys/block/$disk_name/queue/logical_block_size 2>/dev/null || echo 512)
+  DISK_END_MB=$(( sectors * sect_size / 1024 / 1024 ))
+  LAST_END=$(parted -s $BOOT_DISK unit MiB print | awk '/^ [0-9]+/ {gsub(/MiB/,"",$3); end=$3+0} END{print int(end)}')
+  START_MB=$(( LAST_END + 20 ))
+  END_MB=$(( DISK_END_MB - 4 ))
+  if [ "$START_MB" -lt "$END_MB" ]; then
+    parted --fix -s $BOOT_DISK mkpart primary ext4 "${START_MB}MiB" "${END_MB}MiB"
+    partprobe $BOOT_DISK
+    PART_NUM=$(parted -s $BOOT_DISK print | awk '/^ [0-9]+/ {print $1}' | tail -1)
+    parted -s $BOOT_DISK name $PART_NUM overlayfs
+    NEW_PARTITION="${BOOT_DISK}p${PART_NUM}"
+    MKFS_BIN=$(get_mkfs_bin)
+    [ -z "$MKFS_BIN" ] && echo "<1>overlay: mkfs.ext4/mke2fs not found" > /dev/kmsg && exit 1
+    "$MKFS_BIN" -F -L overlayfs "$NEW_PARTITION"
+    overlayfs_dev=$(wait_overlay_dev)
+    [ -z "$overlayfs_dev" ] && overlayfs_dev="$NEW_PARTITION"
+  fi
+fi
+[ -z "$overlayfs_dev" ] && [ -b "${BOOT_DISK}p2" ] && overlayfs_dev="${BOOT_DISK}p2"
+[ -z "$overlayfs_dev" ] && echo "<1>overlay: no overlay partition found" > /dev/kmsg && exit 1
+mkdir -p /overlay
+mount "$overlayfs_dev" /overlay
 
 if [ -f /overlay/.initshell ]
 then
@@ -93,44 +152,45 @@ then
   rm /overlay/.initshell
 fi
 
-dvr_dev=$(blkid  | grep 'LABEL="DVR"'| cut -d : -f 1)
-if [ -z $dvr_dev ]
-then
-  LAST_END=$(parted -s $BOOT_DISK print | awk '/^ [0-9]+/ {print $3}' | tr -d 'MB' | sort -n | tail -1)
-  START_MB=$(( LAST_END + 21 ))
-  parted --fix -s $BOOT_DISK mkpart primary fat32 "${START_MB}MB" 100%
-  partprobe $BOOT_DISK
-  PART_NUM=$(parted -s $BOOT_DISK print | awk '/^ [0-9]+/ {print $1}' | tail -1)
-  parted -s $BOOT_DISK name $PART_NUM DVR
-  NEW_PARTITION="${BOOT_DISK}p${PART_NUM}"
-  mkfs.vfat $NEW_PARTITION -n DVR
-  dvr_dev=$(blkid  | grep 'LABEL="DVR"'| cut -d : -f 1)
-fi
-
 # Sysupgrade
 . /etc/os-release
-sysupg "$dvr_dev"
+if [ -f "/overlay/${BUILD_CONFIG}.tar.gz" ]; then
+    sysupgrade --archive="/overlay/${BUILD_CONFIG}.tar.gz" --no_reboot 2>&1 | while IFS= read -r line; do
+        echo "<0>autoupdate: $line" > /dev/kmsg
+    done
+    echo "<0>autoupdate: Upgrade process completed" > /dev/kmsg
+    echo "<0>autoupdate: Please reboot" > /dev/kmsg
+    sleep infinity
+fi
 if [ -b /dev/mmcblk1p1 ] && file -s /dev/mmcblk1p1 | grep -q 'FAT'; then
     sysupg "/dev/mmcblk1p1"
 fi
 
 . /etc/default/br-config 2> /dev/null
 
-if [ x$BR2_BOARD_GPIO_CONFIG_PIN_NAME = x"y" ] ; then
-  FACTORY_RESET_GPIO=$(gpiofind $BR2_FACTORY_RESET_GPIO_PIN_NAME)
-  GADGET_MODE_GPIO=$(gpiofind $BR2_GADGET_MODE_GPIO_PIN_NAME)
-fi
-if [ x$BR2_BOARD_GPIO_CONFIG_CHIP_LINE = x"y" ] ; then
-  FACTORY_RESET_GPIO="$BR2_FACTORY_RESET_GPIO_CHIP $BR2_FACTORY_RESET_GPIO_LINE"
-  GADGET_MODE_GPIO="$BR2_GADGET_MODE_GPIO_CHIP $BR2_GADGET_MODE_GPIO_LINE"
-fi
-
-if [ -n "$FACTORY_RESET_GPIO" ]; then
-  if [ "$(gpioget $FACTORY_RESET_GPIO)" = "1" ]; then
-    sleep 1
-    FACTORY_RESET_GPIO_STATE=$(gpioget $FACTORY_RESET_GPIO)
+if command -v gpiofind >/dev/null 2>&1 && command -v gpioget >/dev/null 2>&1; then
+  if [ x$BR2_BOARD_GPIO_CONFIG_PIN_NAME = x"y" ] ; then
+    FACTORY_RESET_GPIO=$(gpiofind $BR2_FACTORY_RESET_GPIO_PIN_NAME)
+    GADGET_MODE_GPIO=$(gpiofind $BR2_GADGET_MODE_GPIO_PIN_NAME)
+  fi
+  if [ x$BR2_BOARD_GPIO_CONFIG_CHIP_LINE = x"y" ] ; then
+    FACTORY_RESET_GPIO="$BR2_FACTORY_RESET_GPIO_CHIP $BR2_FACTORY_RESET_GPIO_LINE"
+    GADGET_MODE_GPIO="$BR2_GADGET_MODE_GPIO_CHIP $BR2_GADGET_MODE_GPIO_LINE"
+  fi
+  if [ -n "$FACTORY_RESET_GPIO" ]; then
+    if [ "$(gpioget $FACTORY_RESET_GPIO)" = "1" ]; then
+      sleep 1
+      FACTORY_RESET_GPIO_STATE=$(gpioget $FACTORY_RESET_GPIO)
+    fi
+  fi
+  if [ -n "$GADGET_MODE_GPIO" ]; then
+    if [ "$(gpioget $GADGET_MODE_GPIO)" = "1" ]; then
+      sleep 1
+      GADGET_MODE_GPIO_STATE=$(gpioget $GADGET_MODE_GPIO)
+    fi
   fi
 fi
+
 if [ -f /overlay/.firstboot -o "$FACTORY_RESET_GPIO_STATE" = "1" ]
 then
   echo '<0>firstboot: #####################################################################' > /dev/kmsg
@@ -139,15 +199,31 @@ then
   echo '<0>firstboot: #                                                                   #' > /dev/kmsg
   echo '<0>firstboot: #####################################################################' > /dev/kmsg
   umount /overlay
-  mke2fs -t ext4 -F $overlayfs_dev -L overlayfs
+  MKFS_BIN=$(get_mkfs_bin)
+  [ -z "$MKFS_BIN" ] && echo "<1>overlay: mkfs.ext4/mke2fs not found" > /dev/kmsg && exit 1
+  "$MKFS_BIN" -F -L overlayfs "$overlayfs_dev"
   mount $overlayfs_dev /overlay
+fi
+
+if [ -n "$GADGET_MODE_GPIO_STATE" ] && [ "$GADGET_MODE_GPIO_STATE" = "1" ]
+then
+  echo '<0>gadget_mode: #####################################################################' > /dev/kmsg
+  echo '<0>gadget_mode: #                                                                   #' > /dev/kmsg
+  echo '<0>gadget_mode: #                         Gadget Mode                               #' > /dev/kmsg
+  echo '<0>gadget_mode: #                                                                   #' > /dev/kmsg
+  echo '<0>gadget_mode: #####################################################################' > /dev/kmsg
+  touch /tmp/gadget
 fi
 
 overlay_rootdir=/overlay/root
 overlay_workdir=/overlay/work
 mkdir -p $overlay_rootdir $overlay_workdir
+mkdir -p $overlay_rootdir/media/dvr
+mkdir -p /mnt
+modprobe overlay 2>/dev/null || true
 
 if ! mount -t overlay overlay -o lowerdir=/,upperdir=$overlay_rootdir,workdir=$overlay_workdir /mnt; then
+	echo "<1>overlay: mount overlay root failed" > /dev/kmsg
 	umount /overlay
 	exit 1
 fi

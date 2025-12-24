@@ -32,9 +32,6 @@ EOF
 
 cp ${O}/.config $TARGET_DIR/etc/default/br-config
 
-AUTOMOUNT_INSERT_LINE=$(grep -n "# now run any rc scripts" $TARGET_DIR/etc/inittab| cut -d: -f1)
-grep -q automount $TARGET_DIR/etc/inittab || sed -i "${AUTOMOUNT_INSERT_LINE}i # Start automount daemon\n::sysinit:/usr/sbin/automount\n" $TARGET_DIR/etc/inittab
-
 grep -q gadget $TARGET_DIR/etc/inittab || echo '
 # Start gadget
 ::sysinit:/usr/sbin/gadget init' >> $TARGET_DIR/etc/inittab
