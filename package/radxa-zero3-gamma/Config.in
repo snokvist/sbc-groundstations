@@ -14,7 +14,7 @@ if BR2_PACKAGE_RADXA_ZERO3_GAMMA
 
 config BR2_PACKAGE_RADXA_ZERO3_GAMMA_DEFAULT_CRTC
 	int "Default CRTC ID"
-	default 68
+	default 88
 	help
 	  Default CRTC ID compiled into the binary (DEFAULT_CRTC).
 
