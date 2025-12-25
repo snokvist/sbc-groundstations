@@ -24,7 +24,7 @@ define RADXA_ZERO3_GAMMA_INSTALL_TARGET_CMDS
 		DESTDIR="$(TARGET_DIR)" \
 		PREFIX="/usr" \
 		install
-	$(INSTALL) -D -m 0644 $(@D)/presets.ini $(TARGET_DIR)/etc/gamma-presets.ini
+	$(INSTALL) -D -m 0644 $(@D)/presets.ini $(TARGET_DIR)/etc/presets.ini
 endef
 
 $(eval $(generic-package))
