@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-RADXA_ZERO3_GAMMA_VERSION = 5ef5b5daf94b0f2b4f80ad4032a7c6315e2dfbbf
+RADXA_ZERO3_GAMMA_VERSION = d284eb8eeeacf0dc034005c2994a5b75b6bea032
 RADXA_ZERO3_GAMMA_SITE = https://github.com/snokvist/radxa-zero3-gamma.git
 RADXA_ZERO3_GAMMA_SITE_METHOD = git
 RADXA_ZERO3_GAMMA_LICENSE = Proprietary
