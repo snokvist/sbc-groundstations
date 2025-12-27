@@ -1,0 +1,1 @@
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="joystick2crsf-keys", SYMLINK+="input/joystick2crsf-keys"
