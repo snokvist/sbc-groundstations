@@ -47,6 +47,12 @@ define PIXELPILOT_MINI_RK_INSTALL_TARGET_CMDS
 	sed -e 's|@ASSETDIR@|/usr/share/pixelpilot_mini_rk|g' \
 		$(@D)/config/pixelpilot_mini.ini > $(TARGET_DIR)/etc/pixelpilot_mini.ini
 	chmod 0644 $(TARGET_DIR)/etc/pixelpilot_mini.ini
+
+	$(INSTALL) -D -m 0755 $(PIXELPILOT_MINI_RK_PKGDIR)/files/S99osd_send \
+		$(TARGET_DIR)/etc/init.d/S99osd_send
+	$(INSTALL) -D -m 0755 $(PIXELPILOT_MINI_RK_PKGDIR)/files/osd_send \
+		$(TARGET_DIR)/usr/bin/osd_send
+
 endef
 
 # SysV init script (BusyBox init)
