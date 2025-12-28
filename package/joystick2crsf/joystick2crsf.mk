@@ -28,7 +28,7 @@ define JOYSTICK2CRSF_INSTALL_TARGET_CMDS
 		$(TARGET_DIR)/usr/bin/joystick2crsf
 
 	# Default config
-	$(INSTALL) -D -m 0644 $(@D)/joystick2crfs.conf \
+	$(INSTALL) -D -m 0644 $(@D)/joystick2crsf.conf \
 		$(TARGET_DIR)/etc/joystick2crsf.conf
 endef
 
