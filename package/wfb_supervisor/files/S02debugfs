@@ -1,0 +1,8 @@
+#!/bin/sh
+case "$1" in
+  start)
+    mkdir -p /sys/kernel/debug
+    mountpoint -q /sys/kernel/debug || mount -t debugfs debugfs /sys/kernel/debug
+    ;;
+esac
+exit 0
