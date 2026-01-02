@@ -28,7 +28,7 @@ define WFB_SUPERVISOR_INSTALL_TARGET_CMDS
 
 	$(INSTALL) -m 755 -d $(TARGET_DIR)/etc/init.d
 	$(INSTALL) -m 0755 -t $(TARGET_DIR)/etc/init.d $(WFB_SUPERVISOR_PKGDIR)/files/S50ap
-
+	$(INSTALL) -m 0755 -t $(TARGET_DIR)/etc/init.d $(WFB_SUPERVISOR_PKGDIR)/files/S02debugfs
 
 
 
