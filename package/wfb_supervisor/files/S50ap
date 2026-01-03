@@ -29,6 +29,11 @@ start_ap() {
 
   iw dev "${WLAN}" set power_save off 2>/dev/null || true
 
+  #Setting higher MTU
+  ip link set dev "${WLAN}" mtu 2304
+  # Locking TX rate to mcs 0+1 to avoid ministrel lookaround
+  conn_ctrl.sh mcs 0 1
+
   # If wpa_supplicant is running and holding wlan0, hostapd can fail.
   if pidof wpa_supplicant >/dev/null 2>&1; then
     echo "[ap] Stopping wpa_supplicant (was running)"
