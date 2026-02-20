@@ -15,9 +15,13 @@ ifeq ($(BR2_PACKAGE_RGB20PRO_LINUX_PATCHES),y)
 
 define RGB20PRO_LINUX_PATCHES_APPLY
 	@echo "rgb20pro-linux-patches: applying compatible Rocknix patches"
-	$(APPLY_PATCHES) $(@D) \
-		$(RGB20PRO_LINUX_PATCH_DIR) \
-		0006-drm-panel-nv3051d-fix-panel-timings-and-display-mode.patch
+	if [ -f $(@D)/drivers/gpu/drm/panel/panel-newvision-nv3051d.c ]; then \
+		$(APPLY_PATCHES) $(@D) \
+			$(RGB20PRO_LINUX_PATCH_DIR) \
+			0006-drm-panel-nv3051d-fix-panel-timings-and-display-mode.patch; \
+	else \
+		echo "rgb20pro-linux-patches: skipping 0006 (panel-newvision-nv3051d.c not in kernel tree)"; \
+	fi
 	$(APPLY_PATCHES) $(@D) \
 		$(RGB20PRO_LINUX_PATCH_DIR) \
 		0018-arm64-dts-rockchip-add-device-tree-for-powkiddy-rgb2.patch
