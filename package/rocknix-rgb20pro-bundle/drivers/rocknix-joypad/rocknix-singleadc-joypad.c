@@ -7,7 +7,7 @@
 
 /*----------------------------------------------------------------------------*/
 #include <linux/module.h>
-#include <linux/input-polldev.h>
+#include "input-polldev-compat.h"
 #include <linux/platform_device.h>
 #include <linux/iio/consumer.h>
 #include <linux/version.h>
