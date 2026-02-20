@@ -234,8 +234,6 @@ struct joypad {
 
 };
 
-extern struct input_dev * joypad_input_g;
-
 static int pwm_vibrator_start(struct joypad *joypad)
 {
 	struct pwm_state state;
@@ -897,8 +895,6 @@ static int joypad_input_setup(struct device *dev, struct joypad *joypad)
 	input = poll_dev->input;
 
 	input->name = DRV_NAME;
-
-	joypad_input_g=input;
 
 	device_property_read_string(dev, "joypad-name", &input->name);
 	input->phys = DRV_NAME"/input0";
