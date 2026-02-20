@@ -23,6 +23,28 @@
 #include <drm/drm_modes.h>
 #include <drm/drm_panel.h>
 
+/*
+ * Compatibility shim for older kernels (e.g. 6.1) that do not provide
+ * mipi_dsi_multi_context + mipi_dsi_dcs_write_seq_multi().
+ */
+#ifndef mipi_dsi_dcs_write_seq_multi
+struct mipi_dsi_multi_context {
+	struct mipi_dsi_device *dsi;
+	int acc_error;
+};
+
+#define mipi_dsi_dcs_write_seq_multi(ctx, seq...)				\
+	do {									\
+		static const u8 d[] = { seq };					\
+		int ret;							\
+		if ((ctx)->acc_error < 0)					\
+			break;							\
+		ret = mipi_dsi_dcs_write_buffer((ctx)->dsi, d, ARRAY_SIZE(d));	\
+		if (ret < 0)							\
+			(ctx)->acc_error = ret;				\
+	} while (0)
+#endif
+
 struct nv3051d_panel_info {
 	const struct drm_display_mode *display_modes;
 	unsigned int num_modes;
@@ -240,7 +262,7 @@ static int panel_nv3051d_init_sequence(struct panel_nv3051d *ctx)
 
 	dev_dbg(ctx->dev, "Panel init sequence done\n");
 
-	return 0;
+	return dsi_ctx.acc_error;
 }
 
 static int panel_nv3051d_unprepare(struct drm_panel *panel)
@@ -367,7 +389,7 @@ static int panel_nv3051d_probe(struct mipi_dsi_device *dsi)
 
 	ctx->dev = dev;
 
-	ctx->panel_info = of_device_get_match_data(dev);
+	ctx->panel_info = device_get_match_data(dev);
 	if (!ctx->panel_info)
 		return -EINVAL;
 
