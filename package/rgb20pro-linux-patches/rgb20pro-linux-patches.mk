@@ -15,10 +15,24 @@ ifeq ($(BR2_PACKAGE_RGB20PRO_LINUX_PATCHES),y)
 
 define RGB20PRO_LINUX_PATCHES_APPLY
 	@echo "rgb20pro-linux-patches: applying compatible Rocknix patches"
+	# Some BSP kernels omit the upstream nv3051d panel driver. Inject a vendored
+	# copy so the RK2023/RGB20 Pro timing fix can still be used.
+	if [ ! -f $(@D)/drivers/gpu/drm/panel/panel-newvision-nv3051d.c ]; then \
+		mkdir -p $(@D)/drivers/gpu/drm/panel; \
+		cp -f $(RGB20PRO_LINUX_BUNDLE_DIR)/drivers/nv3051d/panel-newvision-nv3051d.c \
+			$(@D)/drivers/gpu/drm/panel/panel-newvision-nv3051d.c; \
+		grep -q 'panel-newvision-nv3051d.o' $(@D)/drivers/gpu/drm/panel/Makefile || \
+			echo 'obj-y += panel-newvision-nv3051d.o' >> $(@D)/drivers/gpu/drm/panel/Makefile; \
+		echo "rgb20pro-linux-patches: injected panel-newvision-nv3051d.c"; \
+	fi
 	if [ -f $(@D)/drivers/gpu/drm/panel/panel-newvision-nv3051d.c ]; then \
-		$(APPLY_PATCHES) $(@D) \
-			$(RGB20PRO_LINUX_PATCH_DIR) \
-			0006-drm-panel-nv3051d-fix-panel-timings-and-display-mode.patch; \
+		if grep -q 'MIPI_DSI_CLOCK_NON_CONTINUOUS' $(@D)/drivers/gpu/drm/panel/panel-newvision-nv3051d.c; then \
+			echo "rgb20pro-linux-patches: 0006 already applied in panel-newvision-nv3051d.c"; \
+		else \
+			$(APPLY_PATCHES) $(@D) \
+				$(RGB20PRO_LINUX_PATCH_DIR) \
+				0006-drm-panel-nv3051d-fix-panel-timings-and-display-mode.patch; \
+		fi; \
 	else \
 		echo "rgb20pro-linux-patches: skipping 0006 (panel-newvision-nv3051d.c not in kernel tree)"; \
 	fi
