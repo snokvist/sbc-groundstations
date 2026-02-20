@@ -57,18 +57,18 @@ define RGB20PRO_LINUX_PATCHES_INSTALL_FILES
 		$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi
 	# Radxa BSP DTS trees may miss some RK2023 labels used by Rocknix.
 	# Prune incompatible override blocks from the copied rk2023 dtsi.
-	dtsi="$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi"; \
-	dtsroot="$(@D)/arch/arm64/boot/dts/rockchip"; \
 	for lbl in combphy1 hdmi_in hdmi_out usb_host0_xhci usb_host1_xhci usb2phy1_host; do \
-		if ! grep -Rqs "^[[:space:]]*$$lbl:" $$dtsroot; then \
+		if ! grep -Rqs "^[[:space:]]*$$lbl:" $(@D)/arch/arm64/boot/dts/rockchip; then \
 			echo "rgb20pro-linux-patches: pruning &$$lbl block (label missing in BSP DTS)"; \
-			$(SED) "/^[[:space:]]*&$$lbl[[:space:]]*{/,/^};[[:space:]]*$$/d" $$dtsi; \
+			$(SED) "/^[[:space:]]*&$$lbl[[:space:]]*{/,/^};[[:space:]]*$$/d" \
+				$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi; \
 		fi; \
-	done; \
+	done
 	# Some BSP trees do not expose vdd_cpu label used by Rocknix rk2023 dtsi.
-	if ! grep -Rqs "^[[:space:]]*vdd_cpu:" $$dtsroot; then \
+	if ! grep -Rqs "^[[:space:]]*vdd_cpu:" $(@D)/arch/arm64/boot/dts/rockchip; then \
 		echo "rgb20pro-linux-patches: removing cpu-supply references to missing vdd_cpu label"; \
-		$(SED) '/cpu-supply = <&vdd_cpu>;/d' $$dtsi; \
+		$(SED) '/cpu-supply = <&vdd_cpu>;/d' \
+			$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi; \
 	fi
 	# If hdmi_in/out blocks were pruned, these endpoint links can become dangling.
 	$(SED) '/remote-endpoint = <&hdmi_out_con>;/d' \
