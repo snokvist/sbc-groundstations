@@ -55,6 +55,21 @@ define RGB20PRO_LINUX_PATCHES_INSTALL_FILES
 	# Bundle file is used as a dtsi include for rgb20-pro DTS.
 	$(SED) '/^\/dts-v1\/;$$/d' \
 		$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi
+	# Radxa BSP DTS trees may miss some RK2023 labels used by Rocknix.
+	# Prune incompatible override blocks from the copied rk2023 dtsi.
+	dtsi=$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi; \
+	dtsroot=$(@D)/arch/arm64/boot/dts/rockchip; \
+	for lbl in combphy1 hdmi_in hdmi_out usb_host0_xhci usb_host1_xhci usb2phy1_host; do \
+		if ! grep -Rqs "^[[:space:]]*$$lbl:" $$dtsroot; then \
+			echo "rgb20pro-linux-patches: pruning &$$lbl block (label missing in BSP DTS)"; \
+			$(SED) "/^[[:space:]]*&$$lbl[[:space:]]*{/,/^[[:space:]]*};[[:space:]]*$$/d" $$dtsi; \
+		fi; \
+	done
+	# If hdmi_in/out blocks were pruned, these endpoint links can become dangling.
+	$(SED) '/remote-endpoint = <&hdmi_out_con>;/d' \
+		$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi
+	$(SED) '/remote-endpoint = <&hdmi_in_vp0>;/d' \
+		$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi
 	if [ -f $(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rgb20-pro.dts ]; then \
 		$(SED) 's/"rk3566-powkiddy-rk2023\.dts"/"rk3566-powkiddy-rk2023.dtsi"/' \
 			$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rgb20-pro.dts; \
