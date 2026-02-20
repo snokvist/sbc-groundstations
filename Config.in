@@ -20,6 +20,8 @@ source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/joystick2crsf/Config.in"
 source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/ip2uart/Config.in"
 source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/radxa-zero3-gamma/Config.in"
 source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/wfb-bins-only/Config.in"
+source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/rgb20pro-linux-patches/Config.in"
+source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/rocknix-joypad-openipc/Config.in"
 
 choice
     prompt "GPIO configuration method"
