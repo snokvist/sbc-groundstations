@@ -55,11 +55,22 @@ define RGB20PRO_LINUX_PATCHES_INSTALL_FILES
 	# Bundle file is used as a dtsi include for rgb20-pro DTS.
 	$(SED) '/^\/dts-v1\/;$$/d' \
 		$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi
+	# Avoid endpoint label collisions with rk356x base dtsi labels.
+	$(SED) 's/\<vp0_out_hdmi:[[:space:]]*//' \
+		$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi
+	$(SED) 's/\<vp1_out_dsi0:[[:space:]]*//' \
+		$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi
+	$(SED) 's/\<dsi0_in_vp1:[[:space:]]*//' \
+		$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi
 	# Radxa BSP DTS trees may miss some RK2023 labels used by Rocknix.
 	# Prune incompatible override blocks from the copied rk2023 dtsi.
+	dts_label_files="$(@D)/arch/arm64/boot/dts/rockchip/rk3566.dtsi"; \
+	if [ -f $(@D)/arch/arm64/boot/dts/rockchip/rk356x.dtsi ]; then \
+		dts_label_files="$$dts_label_files $(@D)/arch/arm64/boot/dts/rockchip/rk356x.dtsi"; \
+	fi; \
 	for lbl in combphy1 hdmi_in hdmi_out usb_host0_xhci usb_host1_xhci usb2phy1_host; do \
 		if ! grep -qs "^[[:space:]]*$$lbl:" \
-			$(@D)/arch/arm64/boot/dts/rockchip/rk3566*.dtsi; then \
+			$$dts_label_files; then \
 			echo "rgb20pro-linux-patches: pruning &$$lbl block (label missing in BSP DTS)"; \
 			$(SED) "/^[[:space:]]*&$$lbl[[:space:]]*{/,/^};[[:space:]]*$$/d" \
 				$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi; \
@@ -67,7 +78,7 @@ define RGB20PRO_LINUX_PATCHES_INSTALL_FILES
 	done
 	# Some BSP trees do not expose vdd_cpu label used by Rocknix rk2023 dtsi.
 	if ! grep -qs "^[[:space:]]*vdd_cpu:" \
-		$(@D)/arch/arm64/boot/dts/rockchip/rk3566*.dtsi; then \
+		$$dts_label_files; then \
 		echo "rgb20pro-linux-patches: removing cpu-supply references to missing vdd_cpu label"; \
 		$(SED) '/cpu-supply = <&vdd_cpu>;/d' \
 			$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi; \
