@@ -77,6 +77,10 @@ define RGB20PRO_LINUX_PATCHES_INSTALL_FILES
 		fi; \
 	done
 	# Some BSP trees do not expose vdd_cpu label used by Rocknix rk2023 dtsi.
+	dts_label_files="$(@D)/arch/arm64/boot/dts/rockchip/rk3566.dtsi"; \
+	if [ -f $(@D)/arch/arm64/boot/dts/rockchip/rk356x.dtsi ]; then \
+		dts_label_files="$$dts_label_files $(@D)/arch/arm64/boot/dts/rockchip/rk356x.dtsi"; \
+	fi; \
 	if ! grep -qs "^[[:space:]]*vdd_cpu:" \
 		$$dts_label_files; then \
 		echo "rgb20pro-linux-patches: removing cpu-supply references to missing vdd_cpu label"; \
