@@ -62,9 +62,14 @@ define RGB20PRO_LINUX_PATCHES_INSTALL_FILES
 	for lbl in combphy1 hdmi_in hdmi_out usb_host0_xhci usb_host1_xhci usb2phy1_host; do \
 		if ! grep -Rqs "^[[:space:]]*$$lbl:" $$dtsroot; then \
 			echo "rgb20pro-linux-patches: pruning &$$lbl block (label missing in BSP DTS)"; \
-			$(SED) "/^[[:space:]]*&$$lbl[[:space:]]*{/,/^[[:space:]]*};[[:space:]]*$$/d" $$dtsi; \
+			$(SED) "/^[[:space:]]*&$$lbl[[:space:]]*{/,/^};[[:space:]]*$$/d" $$dtsi; \
 		fi; \
 	done
+	# Some BSP trees do not expose vdd_cpu label used by Rocknix rk2023 dtsi.
+	if ! grep -Rqs "^[[:space:]]*vdd_cpu:" $$dtsroot; then \
+		echo "rgb20pro-linux-patches: removing cpu-supply references to missing vdd_cpu label"; \
+		$(SED) '/cpu-supply = <&vdd_cpu>;/d' $$dtsi; \
+	fi
 	# If hdmi_in/out blocks were pruned, these endpoint links can become dangling.
 	$(SED) '/remote-endpoint = <&hdmi_out_con>;/d' \
 		$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi
