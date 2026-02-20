@@ -38,10 +38,6 @@ define PIXELPILOT_MINI_RK_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0755 $(@D)/pixelpilot_mini_rk \
 		$(TARGET_DIR)/usr/bin/pixelpilot_mini_rk
 
-	# Assets
-	$(INSTALL) -D -m 0644 $(@D)/assets/spinner_ai_1080p30.h265 \
-		$(TARGET_DIR)/usr/share/pixelpilot_mini_rk/spinner_ai_1080p30.h265
-
 	# Config: generate pixelpilot_mini.ini with ASSETDIR substituted
 	$(INSTALL) -d $(TARGET_DIR)/etc
 	sed -e 's|@ASSETDIR@|/usr/share/pixelpilot_mini_rk|g' \
