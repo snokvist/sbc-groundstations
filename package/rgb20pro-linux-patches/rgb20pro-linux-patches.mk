@@ -14,14 +14,16 @@ RGB20PRO_LINUX_PATCH_DIR = $(RGB20PRO_LINUX_BUNDLE_DIR)/linux-patches
 ifeq ($(BR2_PACKAGE_RGB20PRO_LINUX_PATCHES),y)
 
 define RGB20PRO_LINUX_PATCHES_APPLY
-	@echo "rgb20pro-linux-patches: applying Rocknix patch set"
+	@echo "rgb20pro-linux-patches: applying compatible Rocknix patches"
 	$(APPLY_PATCHES) $(@D) \
 		$(RGB20PRO_LINUX_PATCH_DIR) \
-		\*.patch
+		0006-drm-panel-nv3051d-fix-panel-timings-and-display-mode.patch
+	$(APPLY_PATCHES) $(@D) \
+		$(RGB20PRO_LINUX_PATCH_DIR) \
+		0018-arm64-dts-rockchip-add-device-tree-for-powkiddy-rgb2.patch
 endef
 LINUX_POST_RSYNC_HOOKS += RGB20PRO_LINUX_PATCHES_APPLY
 
-# Inject generic-dsi panel driver and RK2023 shared DTSI needed by RGB20 Pro DTS.
 define RGB20PRO_LINUX_PATCHES_INSTALL_FILES
 	@echo "rgb20pro-linux-patches: copying panel/dts support files"
 	@mkdir -p $(@D)/drivers/gpu/drm/panel
@@ -31,11 +33,17 @@ define RGB20PRO_LINUX_PATCHES_INSTALL_FILES
 		echo 'obj-y += panel-generic-dsi.o' >> $(@D)/drivers/gpu/drm/panel/Makefile
 	@mkdir -p $(@D)/arch/arm64/boot/dts/rockchip
 	cp -f $(RGB20PRO_LINUX_BUNDLE_DIR)/dts/rk3566-powkiddy-rk2023.dtsi \
-		$(@D)/arch/arm64/boot/dts/rockchip/
+		$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi
+	# Bundle file is used as a dtsi include for rgb20-pro DTS.
+	$(SED) '/^\/dts-v1\/;$$/d' \
+		$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi
+	if [ -f $(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rgb20-pro.dts ]; then \
+		$(SED) 's/"rk3566-powkiddy-rk2023\.dts"/"rk3566-powkiddy-rk2023.dtsi"/' \
+			$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rgb20-pro.dts; \
+	fi
 endef
 LINUX_POST_RSYNC_HOOKS += RGB20PRO_LINUX_PATCHES_INSTALL_FILES
 
-# Minimum config bits expected by the Rocknix driver/panel stack.
 define RGB20PRO_LINUX_PATCHES_LINUX_CONFIG_FIXUPS
 	$(call KCONFIG_ENABLE_OPT,CONFIG_INPUT_JOYSTICK)
 	$(call KCONFIG_ENABLE_OPT,CONFIG_INPUT_POLLDEV)
