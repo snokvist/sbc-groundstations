@@ -92,6 +92,12 @@ define RGB20PRO_LINUX_PATCHES_INSTALL_FILES
 		$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi
 	$(SED) '/remote-endpoint = <&hdmi_in_vp0>;/d' \
 		$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi
+	# RGB20 Pro DTS in this BSP does not define mipi_in_panel graph endpoint.
+	if ! grep -qs "^[[:space:]]*mipi_in_panel:" \
+		$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rgb20-pro.dts; then \
+		$(SED) '/remote-endpoint = <&mipi_in_panel>;/d' \
+			$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rk2023.dtsi; \
+	fi
 	if [ -f $(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rgb20-pro.dts ]; then \
 		$(SED) 's/"rk3566-powkiddy-rk2023\.dts"/"rk3566-powkiddy-rk2023.dtsi"/' \
 			$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rgb20-pro.dts; \
