@@ -9,7 +9,7 @@
 #
 ###############################################################################
 
-WAYBEAM_HUB_VERSION = 82c50947
+WAYBEAM_HUB_VERSION = cfbc9003
 WAYBEAM_HUB_SITE = https://github.com/snokvist/waybeam-releases/releases/download/waybeam-hub-ground-$(WAYBEAM_HUB_VERSION)
 WAYBEAM_HUB_SITE_METHOD = wget
 WAYBEAM_HUB_SOURCE = waybeam_hub_ground.tar.gz
