@@ -1,0 +1,7 @@
+config BR2_PACKAGE_WAYBEAM_HUB
+	bool "waybeam-hub (ground station)"
+	help
+	  Waybeam hub ground station daemon. Provides integrated video decode
+	  (Rockchip MPP), OSD overlay, joystick input, telemetry, WebUI, and
+	  menu system. Replaces standalone pixelpilot and individual component
+	  packages.
