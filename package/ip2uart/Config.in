@@ -1,0 +1,11 @@
+config BR2_PACKAGE_IP2UART
+	bool "ip2uart"
+	help
+	  ip2uart - small IP-to-UART bridge utility.
+
+	  Installs:
+	    - /usr/sbin/ip2uart
+	    - /etc/ip2uart.conf
+	    - SysV init script: /etc/init.d/S96ip2uart
+
+	  https://github.com/snokvist/ip2uart

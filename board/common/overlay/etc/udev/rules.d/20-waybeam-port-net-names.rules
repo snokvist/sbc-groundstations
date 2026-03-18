@@ -1,0 +1,2 @@
+SUBSYSTEM=="net", ACTION=="add", DEVPATH=="/devices/platform/usbhost/fd000000.usb/xhci-hcd.4.auto/usb1/1-1/1-1:1.0/net/*", \
+  NAME="waybeam0", OPTIONS+="last_rule"

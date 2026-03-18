@@ -1,0 +1,5 @@
+config BR2_PACKAGE_WFB_SUPERVISOR
+	bool "wfb_supervisor"
+	help
+	  Minimal supervisor for WFB workloads. Builds a small C binary and
+	  installs helper scripts plus default config at /etc/wfb.conf.

@@ -1,0 +1,8 @@
+config BR2_PACKAGE_WFB_BINS_ONLY
+	bool "wfb-bins-only"
+	select BR2_PACKAGE_LIBPCAP
+	select BR2_PACKAGE_LIBSODIUM
+	select BR2_PACKAGE_LIBEVENT
+	help
+	  Long-range packet radio link based on raw WiFi radio.
+	  https://github.com/svpcom/wfb-ng

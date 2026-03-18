@@ -1,0 +1,15 @@
+config BR2_PACKAGE_AUTOD
+	bool "autod"
+	help
+	  autod - small C daemon (includes civetweb/parson) with a VRX web UI.
+
+	  Installs:
+	    - /usr/bin/autod
+	    - /etc/autod/autod.conf
+	    - /usr/share/autod/vrx (UI + assets + exec-handler)
+
+	  Provides:
+	    - SysV init script: /etc/init.d/S99autod
+	    - systemd unit: /usr/lib/systemd/system/autod.service (if enabled)
+
+	  https://github.com/snokvist/autod

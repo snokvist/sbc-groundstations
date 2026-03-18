@@ -15,6 +15,13 @@ source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/msposd/Config.in"
 source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/yq/Config.in"
 source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/drm_info/Config.in"
 source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/dvrui/Config.in"
+source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/pixelpilot_mini_rk/Config.in"
+source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/wfb_supervisor/Config.in"
+source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/wfb-bins-only/Config.in"
+source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/autod/Config.in"
+source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/ip2uart/Config.in"
+source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/joystick2crsf/Config.in"
+source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/radxa-zero3-gamma/Config.in"
 
 choice
     prompt "GPIO configuration method"
