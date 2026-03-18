@@ -13,10 +13,10 @@ WAYBEAM_HUB_INSTALL_TARGET = YES
 WAYBEAM_HUB_DEPENDENCIES = gstreamer1 gst1-plugins-base rockchip-mpp libdrm eudev libpng
 
 WAYBEAM_HUB_MAKE_ENV = \
-	CC="$(TARGET_CC)" \
+	$(TARGET_MAKE_ENV) \
 	PKG_CONFIG="$(PKG_CONFIG_HOST_BINARY)" \
-	PKG_CONFIG_PATH="$(STAGING_DIR)/usr/lib/pkgconfig:$(STAGING_DIR)/usr/share/pkgconfig" \
-	PKG_CONFIG_SYSROOT_DIR="$(STAGING_DIR)"
+	PKG_CONFIG_SYSROOT_DIR="$(STAGING_DIR)" \
+	PKG_CONFIG_LIBDIR="$(STAGING_DIR)/usr/lib/pkgconfig:$(STAGING_DIR)/usr/share/pkgconfig"
 
 define WAYBEAM_HUB_BUILD_CMDS
 	$(WAYBEAM_HUB_MAKE_ENV) $(MAKE) -C $(@D) ground

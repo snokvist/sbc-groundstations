@@ -26,6 +26,7 @@ jobs:
           - openipc_bonnet
           - runcam_wifilink
           - emax_wyvern-link
+          - waybeam_radxa3e
 
     steps:
 
