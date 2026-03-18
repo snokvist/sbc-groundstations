@@ -1,5 +1,14 @@
 config BR2_PACKAGE_WAYBEAM_HUB
 	bool "waybeam-hub (ground station)"
+	select BR2_PACKAGE_ROCKCHIP_MPP
+	select BR2_PACKAGE_GSTREAMER1
+	select BR2_PACKAGE_GST1_PLUGINS_BASE
+	select BR2_PACKAGE_LIBDRM
+	select BR2_PACKAGE_EUDEV
+	select BR2_PACKAGE_LIBGPIOD
+	select BR2_PACKAGE_CJSON
+	select BR2_PACKAGE_LIBCURL
+	select BR2_PACKAGE_LIBPNG
 	help
 	  Waybeam hub ground station daemon. Provides integrated video decode
 	  (Rockchip MPP), OSD overlay, joystick input, telemetry, WebUI, and
