@@ -1,29 +1,28 @@
 ###############################################################################
 #
-# waybeam-hub (ground station build)
+# waybeam-hub (ground station — pre-built aarch64 binary)
+#
+# Binary published by waybeam-hub CI to snokvist/waybeam-releases on every
+# push to main.  Tag format: waybeam-hub-ground-<sha8>
+# Update WAYBEAM_HUB_VERSION to the short SHA of the desired waybeam-hub
+# commit when bumping.
 #
 ###############################################################################
 
-WAYBEAM_HUB_VERSION = 82c509476de097dd58f9f2af179c60db063a114f
-WAYBEAM_HUB_SITE = https://github.com/snokvist/waybeam-hub.git
-WAYBEAM_HUB_SITE_METHOD = git
-WAYBEAM_HUB_GIT_SUBMODULES = YES
+WAYBEAM_HUB_VERSION = 82c50947
+WAYBEAM_HUB_SITE = https://github.com/snokvist/waybeam-releases/releases/download/waybeam-hub-ground-$(WAYBEAM_HUB_VERSION)
+WAYBEAM_HUB_SITE_METHOD = wget
+WAYBEAM_HUB_SOURCE = waybeam_hub_ground.tar.gz
+WAYBEAM_HUB_STRIP_COMPONENTS = 0
 WAYBEAM_HUB_INSTALL_STAGING = NO
 WAYBEAM_HUB_INSTALL_TARGET = YES
-WAYBEAM_HUB_DEPENDENCIES = gstreamer1 gst1-plugins-base rockchip-mpp libdrm eudev libpng
-
-WAYBEAM_HUB_MAKE_ENV = \
-	$(TARGET_MAKE_ENV) \
-	PKG_CONFIG="$(PKG_CONFIG_HOST_BINARY)" \
-	PKG_CONFIG_SYSROOT_DIR="$(STAGING_DIR)" \
-	PKG_CONFIG_LIBDIR="$(STAGING_DIR)/usr/lib/pkgconfig:$(STAGING_DIR)/usr/share/pkgconfig"
 
 define WAYBEAM_HUB_BUILD_CMDS
-	$(WAYBEAM_HUB_MAKE_ENV) $(MAKE) -C $(@D) ground
+	@true # pre-built binary
 endef
 
 define WAYBEAM_HUB_INSTALL_TARGET_CMDS
-	$(INSTALL) -D -m 0755 $(@D)/build/ground/waybeam_hub \
+	$(INSTALL) -D -m 0755 $(@D)/waybeam_hub \
 		$(TARGET_DIR)/usr/bin/waybeam_hub
 
 	$(INSTALL) -D -m 0644 $(WAYBEAM_HUB_PKGDIR)/files/waybeam_ground.conf \
