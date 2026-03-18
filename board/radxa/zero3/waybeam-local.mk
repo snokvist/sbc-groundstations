@@ -17,12 +17,6 @@ endef
 LINUX_POST_RSYNC_HOOKS += CI_CLEANUP_SRC_HOOK
 endif
 
-# ---- Busybox custom patches ----
-define BUSYBOX_APPLY_CUSTOM_PATCHES
-	$(APPLY_PATCHES) $(@D) $(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/package/busybox *.patch
-endef
-BUSYBOX_POST_PATCH_HOOKS += BUSYBOX_APPLY_CUSTOM_PATCHES
-
 # ---- Custom wireless-regdb: replace db.txt with waybeam's full regulatory database ----
 LINUX_DEPENDENCIES += wireless-regdb
 
