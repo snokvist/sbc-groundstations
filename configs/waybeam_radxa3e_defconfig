@@ -200,7 +200,7 @@ BR2_PACKAGE_EVTEST=y
 
 ## Debugging: hardware interfaces
 BR2_PACKAGE_I2C_TOOLS=y
-BR2_PACKAGE_DEVMEM2=y
+# devmem2 removed in Buildroot 2025.08 — use busybox devmem instead
 ##
 
 ## Debugging: system diagnostics

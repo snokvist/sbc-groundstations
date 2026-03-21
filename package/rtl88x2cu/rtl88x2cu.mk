@@ -2,7 +2,7 @@
 # RTL88X2CU package (external kernel)
 ################################################################################
 
-RTL88X2CU_VERSION = 584661042b5be51da424ce670468b046f025ad3a
+RTL88X2CU_VERSION = e8b5f9568f137e34ce7e76994a65565e34257f89
 RTL88X2CU_SITE = https://github.com/snokvist/rtl88x2cu-20230728.git
 RTL88X2CU_SITE_METHOD = git
 RTL88X2CU_LICENSE = unspecified
