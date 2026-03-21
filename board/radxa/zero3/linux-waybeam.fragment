@@ -1,0 +1,38 @@
+# filesystem
+CONFIG_SQUASHFS=y
+CONFIG_OVERLAY_FS=y
+
+# regdb - allow custom unsigned regulatory database
+CONFIG_CFG80211=m
+CONFIG_CFG80211_CERTIFICATION_ONUS=y
+CONFIG_CFG80211_REQUIRE_SIGNED_REGDB=n
+CONFIG_WL_ROCKCHIP=m
+
+# drivers
+CONFIG_SENSORS_INA2XX=m
+
+# dtbo
+CONFIG_OF_CONFIGFS=y
+
+# misc
+CONFIG_MMC_SDHCI_OF_DWCMSHC=y
+CONFIG_MODULE_COMPRESS_NONE=y
+
+# waybeam: additional wifi drivers
+CONFIG_MT76x2U=m
+CONFIG_RTW88=m
+CONFIG_RTW88_USB=m
+CONFIG_RTW88_8812AU=m
+# CONFIG_RTW88_8822CU is not set (conflicts with out-of-tree rtl88x2cu driver)
+
+# waybeam: uart4 serial support
+CONFIG_SERIAL_8250=y
+CONFIG_SERIAL_8250_DW=y
+
+# waybeam: crypto acceleration (wifibroadcast / WPA)
+CONFIG_CRYPTO_AEAD=y
+CONFIG_CRYPTO_SKCIPHER=y
+CONFIG_CRYPTO_AES=y
+CONFIG_CRYPTO_AES_ARM64_CE=y
+CONFIG_CRYPTO_CTR=y
+CONFIG_CRYPTO_CCM=y

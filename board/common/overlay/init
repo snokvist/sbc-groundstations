@@ -82,7 +82,7 @@ then
   PART_NUM=$(parted -s $BOOT_DISK print | awk '/^ [0-9]+/ {print $1}' | tail -1)
   parted -s $BOOT_DISK name $PART_NUM overlayfs
   NEW_PARTITION="${BOOT_DISK}p${PART_NUM}"
-  mke2fs -t ext4 -F "$NEW_PARTITION" -L overlayfs
+  mke2fs -F -L overlayfs "$NEW_PARTITION"
   overlayfs_dev=$(blkid  | grep 'LABEL="overlayfs"'| cut -d : -f 1)
 fi
 mount $overlayfs_dev /overlay
@@ -139,7 +139,7 @@ then
   echo '<0>firstboot: #                                                                   #' > /dev/kmsg
   echo '<0>firstboot: #####################################################################' > /dev/kmsg
   umount /overlay
-  mke2fs -t ext4 -F $overlayfs_dev -L overlayfs
+  mke2fs -F -L overlayfs $overlayfs_dev
   mount $overlayfs_dev /overlay
 fi
 

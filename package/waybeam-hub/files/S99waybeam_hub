@@ -1,0 +1,38 @@
+#!/bin/sh
+
+DAEMON="waybeam_hub"
+DAEMON_ARGS="-c /etc/waybeam_hub.conf"
+PIDFILE="/var/run/waybeam_hub.pid"
+
+start() {
+	echo -n "Starting $DAEMON: "
+	start-stop-daemon -S -b -m -p $PIDFILE -x /usr/bin/$DAEMON -- $DAEMON_ARGS
+	echo "OK"
+}
+
+stop() {
+	echo -n "Stopping $DAEMON: "
+	start-stop-daemon -K -p $PIDFILE
+	echo "OK"
+}
+
+restart() {
+	stop
+	sleep 1
+	start
+}
+
+case "$1" in
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	restart|reload)
+		restart
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+esac

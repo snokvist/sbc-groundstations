@@ -1,0 +1,21 @@
+config BR2_PACKAGE_RADXA_ZERO3_GAMMA
+	bool "radxa-zero3-gamma"
+	select BR2_PACKAGE_LIBDRM
+	help
+	  gamma: small command-line helper for Linux DRM systems that loads a
+	  custom gamma LUT into a display controller (CRTC).
+
+	  Installs:
+	    /usr/bin/gamma
+
+	  Note: the upstream repository does not currently declare a license.
+
+if BR2_PACKAGE_RADXA_ZERO3_GAMMA
+
+config BR2_PACKAGE_RADXA_ZERO3_GAMMA_DEFAULT_CRTC
+	int "Default CRTC ID"
+	default 88
+	help
+	  Default CRTC ID compiled into the binary (DEFAULT_CRTC).
+
+endif

@@ -94,7 +94,7 @@ build_project() {
     
     # Run make
     echo "Starting build..."
-    $build_cmd $TARGET
+    $build_cmd -j$(nproc) $TARGET
 
     if [ $TARGET = "all" ]
     then
