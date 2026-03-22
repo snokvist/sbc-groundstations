@@ -574,6 +574,8 @@ static int generic_panel_probe(struct mipi_dsi_device *dsi)
 	struct generic_panel *ctx;
 	int ret;
 
+	dev_info(dev, "panel-generic-dsi: probe START\n");
+
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
@@ -598,12 +600,11 @@ static int generic_panel_probe(struct mipi_dsi_device *dsi)
 		return ret;
 	}
 
-	ctx->iovcc = devm_regulator_get(dev, "iovcc");
+	ctx->iovcc = devm_regulator_get_optional(dev, "iovcc");
 	if (IS_ERR(ctx->iovcc)) {
-		ret = PTR_ERR(ctx->iovcc);
-		if (ret != -EPROBE_DEFER)
-			dev_err(dev, "Failed to request iovcc regulator: %d\n", ret);
-		return ret;
+		if (PTR_ERR(ctx->iovcc) == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
+		ctx->iovcc = NULL;
 	}
 
 	ret = of_drm_get_panel_orientation(dev->of_node, &ctx->orientation);
@@ -623,23 +624,27 @@ static int generic_panel_probe(struct mipi_dsi_device *dsi)
 			  MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET |
 			  MIPI_DSI_CLOCK_NON_CONTINUOUS;
 
+	dev_info(dev, "panel-generic-dsi: loading description\n");
 	ret = load_panel_description(dsi, ctx);
 	if (ret < 0) {
 		dev_err(dev, "Failed to load panel description\n");
 		return ret;
 	}
 
-	dev_info(dev, "lanes %d, format %d, mode %lx\n", dsi->lanes, dsi->format, dsi->mode_flags);
+	dev_info(dev, "panel-generic-dsi: lanes %d, format %d, mode %lx\n", dsi->lanes, dsi->format, dsi->mode_flags);
 
 	drm_panel_init(&ctx->panel, &dsi->dev, &generic_panel_funcs,
 			   DRM_MODE_CONNECTOR_DSI);
 
+	dev_info(dev, "panel-generic-dsi: backlight\n");
 	ret = drm_panel_of_backlight(&ctx->panel);
 	if (ret)
 		return ret;
 
+	dev_info(dev, "panel-generic-dsi: panel_add\n");
 	drm_panel_add(&ctx->panel);
 
+	dev_info(dev, "panel-generic-dsi: mipi_dsi_attach\n");
 	ret = mipi_dsi_attach(dsi);
 	if (ret < 0) {
 		dev_err(dev, "mipi_dsi_attach failed: %d\n", ret);
