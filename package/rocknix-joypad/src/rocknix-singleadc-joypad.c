@@ -25,7 +25,7 @@
 #define DRV_NAME "rocknix-singleadc-joypad"
 
 #define	ADC_MAX_VOLTAGE		1800
-#define	ADC_DATA_TUNING(x, p)	((x * p) / 100)
+#define	ADC_DATA_TUNING(x, p)	(((x) * (p)) / 100)
 #define	ADC_TUNING_DEFAULT	180
 #define	CLAMP(x, low, high)  (((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
 
@@ -176,7 +176,8 @@ static int joypad_adc_read(struct analog_mux *amux, struct bt_adc *adc)
 	if (joypad_amux_select(amux, adc->amux_ch))
 		return 0;
 
-	iio_read_channel_raw(amux->iio_ch, &value);
+	if (iio_read_channel_raw(amux->iio_ch, &value) < 0)
+		return 0;
 
 	value *= adc->scale;
 
@@ -235,11 +236,11 @@ static void joypad_gpio_check(struct input_polled_dev *poll_dev)
 	for (nbtn = 0; nbtn < joypad->bt_gpio_count; nbtn++) {
 		struct bt_gpio *gpio = &joypad->gpios[nbtn];
 
-		if (gpio_get_value_cansleep(gpio->num) < 0) {
+		value = gpio_get_value_cansleep(gpio->num);
+		if (value < 0) {
 			dev_err(joypad->dev, "failed to get gpio state\n");
 			continue;
 		}
-		value = gpio_get_value_cansleep(gpio->num);
 		if (value != gpio->old_value) {
 			input_event(poll_dev->input,
 				gpio->report_type,
@@ -257,8 +258,8 @@ static void joypad_adc_check(struct input_polled_dev *poll_dev)
 	int nbtn;
 	int mag;
 
-	/* Assumes even number of axes, paired sequentially (X then Y) */
-	for (nbtn = 0; nbtn < joypad->amux_count; nbtn += 2) {
+	/* Axes are paired sequentially (X then Y), require even count */
+	for (nbtn = 0; nbtn + 1 < joypad->amux_count; nbtn += 2) {
 		struct bt_adc *adcx = &joypad->adcs[nbtn];
 		struct bt_adc *adcy = &joypad->adcs[nbtn + 1];
 
@@ -278,7 +279,9 @@ static void joypad_adc_check(struct input_polled_dev *poll_dev)
 			if (mag <= joypad->bt_adc_deadzone) {
 				adcx->value = 0;
 				adcy->value = 0;
-			} else {
+			} else if (mag > 0 &&
+				   adcx->max > joypad->bt_adc_deadzone &&
+				   adcy->max > joypad->bt_adc_deadzone) {
 				adcx->value = (((adcx->max * adcx->value) / mag) * (mag - joypad->bt_adc_deadzone)) / (adcx->max - joypad->bt_adc_deadzone);
 				adcy->value = (((adcy->max * adcy->value) / mag) * (mag - joypad->bt_adc_deadzone)) / (adcy->max - joypad->bt_adc_deadzone);
 			}
@@ -552,8 +555,12 @@ static int joypad_gpio_setup(struct device *dev, struct joypad *joypad)
 	nbtn = 0;
 	for_each_child_of_node(node, pp) {
 		enum of_gpio_flags flags;
-		struct bt_gpio *gpio = &joypad->gpios[nbtn++];
+		struct bt_gpio *gpio;
 		int error;
+
+		if (nbtn >= joypad->bt_gpio_count)
+			break;
+		gpio = &joypad->gpios[nbtn++];
 
 		gpio->num = of_get_gpio_flags(pp, 0, &flags);
 		if (gpio->num < 0) {
@@ -749,6 +756,11 @@ static int joypad_dt_parse(struct device *dev, struct joypad *joypad)
 	device_property_read_u32(dev, "button-adc-deadzone", &joypad->bt_adc_deadzone);
 
 	device_property_read_u32(dev, "amux-count", &joypad->amux_count);
+	if (joypad->amux_count > 4) {
+		dev_warn(dev, "amux-count %d exceeds max 4, clamping\n",
+			 joypad->amux_count);
+		joypad->amux_count = 4;
+	}
 	device_property_read_u32(dev, "poll-interval", &joypad->poll_interval);
 
 	joypad->auto_repeat = device_property_present(dev, "autorepeat");
@@ -766,6 +778,7 @@ static int joypad_dt_parse(struct device *dev, struct joypad *joypad)
 	if ((joypad->amux_count == 0) && (joypad->bt_gpio_count == 0)) {
 		dev_err(dev, "adc key = %d, gpio key = %d error!",
 			joypad->amux_count, joypad->bt_gpio_count);
+		return -EINVAL;
 	}
 
 	if (joypad->amux_count > 0) {
@@ -864,6 +877,18 @@ static int joypad_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static int joypad_remove(struct platform_device *pdev)
+{
+	struct joypad *joypad = platform_get_drvdata(pdev);
+
+	if (joypad->has_rumble) {
+		sysfs_remove_group(&pdev->dev.kobj, &joypad_rumble_attr_group);
+		cancel_work_sync(&joypad->play_work);
+		pwm_vibrator_stop(joypad);
+	}
+	return 0;
+}
+
 static const struct of_device_id joypad_of_match[] = {
 	{ .compatible = "rocknix-singleadc-joypad", },
 	{},
@@ -873,6 +898,7 @@ MODULE_DEVICE_TABLE(of, joypad_of_match);
 
 static struct platform_driver joypad_driver = {
 	.probe = joypad_probe,
+	.remove = joypad_remove,
 	.driver = {
 		.name = DRV_NAME,
 		.pm = &joypad_pm_ops,
@@ -897,4 +923,3 @@ MODULE_AUTHOR("ROCKNIX");
 MODULE_DESCRIPTION("ROCKNIX singleadc joypad driver");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:" DRV_NAME);
-MODULE_INFO(intree, "Y");

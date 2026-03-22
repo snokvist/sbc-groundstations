@@ -144,6 +144,8 @@ int load_mode(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx
 	char *param, *val;
 
 	mode = devm_kzalloc(dev, sizeof(*mode), GFP_KERNEL);
+	if (!mode)
+		return -ENOMEM;
 
 	while (*data) {
 		data = next_arg(data, &param, &val);
@@ -178,6 +180,8 @@ int load_init_seq(char *data, struct mipi_dsi_device *dsi, struct generic_panel 
 	char *param, *val;
 
 	item = devm_kzalloc(dev, sizeof(*item), GFP_KERNEL);
+	if (!item)
+		return -ENOMEM;
 	item->dcs = -1;
 	item->len = -1;
 	item->read = 0;
@@ -191,6 +195,8 @@ int load_init_seq(char *data, struct mipi_dsi_device *dsi, struct generic_panel 
 		} else if (strcmp(param, "data") == 0) {
 			item->len = (strlen(val)) >> 1;
 			item->data = devm_kzalloc(dev, item->len, GFP_KERNEL);
+			if (!item->data)
+				return -ENOMEM;
 			if (hex2bin(item->data, val, item->len) != 0) {
 				dev_info(dev, "bad data %s\n", val);
 				return -1;
@@ -199,6 +205,8 @@ int load_init_seq(char *data, struct mipi_dsi_device *dsi, struct generic_panel 
 			item->dcs = DCS_PSEUDO_CMD_SEQ;
 			item->len = (strlen(val)) >> 1;
 			item->data = devm_kzalloc(dev, item->len, GFP_KERNEL);
+			if (!item->data)
+				return -ENOMEM;
 			if (hex2bin(item->data, val, item->len) != 0) {
 				dev_info(dev, "bad seq %s\n", val);
 				return -1;
@@ -207,7 +215,7 @@ int load_init_seq(char *data, struct mipi_dsi_device *dsi, struct generic_panel 
 		} else if (strcmp(param, "read") == 0) {
 			item->read = simple_strtoul(val, NULL, 16);
 		} else if (strcmp(param, "wait") == 0) {
-			item->wait = simple_strtoul(val, NULL, 16);
+			item->wait = simple_strtoul(val, NULL, 10);
 		} else {
 			dev_info(dev, "Init unhandled %s = %s\n", param, val);
 		}
@@ -246,7 +254,7 @@ int load_panel_description_line(char *data, struct mipi_dsi_device *dsi, struct 
 			load_init_seq(data+1, dsi, ctx);
 			break;
 		default:
-			dev_info(NULL, "Unhandled %s\n", data);
+			pr_info("panel-generic-dsi: Unhandled %s\n", data);
 	}
 
 	return 0;
@@ -270,7 +278,14 @@ int panel_description_foreach(struct mipi_dsi_device *dsi, struct generic_panel 
 		}
 
 		size_t pos = 0, size = fw->size;
-		char *data = (char *)fw->data;
+		char *buf = kmemdup(fw->data, size, GFP_KERNEL);
+		char *data = buf;
+
+		release_firmware(fw);
+		if (!buf) {
+			dev_err(dev, "kmemdup firmware failed\n");
+			return -ENOMEM;
+		}
 
 		while (pos < size) {
 			while ((pos < size) && (data[pos] != '\n')) pos++;
@@ -285,7 +300,7 @@ int panel_description_foreach(struct mipi_dsi_device *dsi, struct generic_panel 
 			pos = 0;
 		}
 
-		release_firmware(fw);
+		kfree(buf);
 	} else {
 		const char *line;
 		char *buf;
@@ -485,6 +500,7 @@ static int generic_panel_get_modes(struct drm_panel *panel,
 	struct drm_display_mode mode_tmp;
 	struct drm_display_mode *mode;
 	struct generic_panel_mode *genmode = ctx->modes;
+	int num_modes = 0;
 
 	while (genmode) {
 		dev_dbg(ctx->dev, "gen mode %d %dx%d\n", genmode->clock, genmode->horizontal[1], genmode->vertical[1]);
@@ -510,8 +526,9 @@ static int generic_panel_get_modes(struct drm_panel *panel,
 
 		mode = drm_mode_duplicate(connector->dev, &mode_tmp);
 		if (!mode) {
-			dev_err(ctx->dev, "Failed to add mode %u\n",
-				drm_mode_vrefresh(mode));
+			dev_err(ctx->dev, "Failed to add mode %ux%u@%u\n",
+				mode_tmp.hdisplay, mode_tmp.vdisplay,
+				drm_mode_vrefresh(&mode_tmp));
 			return -ENOMEM;
 		}
 		drm_mode_set_name(mode);
@@ -520,6 +537,7 @@ static int generic_panel_get_modes(struct drm_panel *panel,
 		if (genmode->is_default) { mode->type |= DRM_MODE_TYPE_PREFERRED; };
 
 		drm_mode_probed_add(connector, mode);
+		num_modes++;
 
 		genmode = genmode->prev;
 	}
@@ -533,7 +551,7 @@ static int generic_panel_get_modes(struct drm_panel *panel,
 	 */
 	drm_connector_set_panel_orientation(connector, ctx->orientation);
 
-	return 1;
+	return num_modes;
 }
 
 static enum drm_panel_orientation generic_panel_get_orientation(struct drm_panel *panel)
@@ -610,8 +628,6 @@ static int generic_panel_probe(struct mipi_dsi_device *dsi)
 		dev_err(dev, "Failed to load panel description\n");
 		return ret;
 	}
-
-	mipi_dsi_set_drvdata(dsi, ctx);
 
 	dev_info(dev, "lanes %d, format %d, mode %lx\n", dsi->lanes, dsi->format, dsi->mode_flags);
 
