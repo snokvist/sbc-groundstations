@@ -9,8 +9,11 @@ config BR2_PACKAGE_WAYBEAM_HUB
 	select BR2_PACKAGE_CJSON
 	select BR2_PACKAGE_LIBCURL
 	select BR2_PACKAGE_LIBPNG
+	select BR2_PACKAGE_LIBRGA
 	help
 	  Waybeam hub ground station daemon. Provides integrated video decode
 	  (Rockchip MPP), OSD overlay, joystick input, telemetry, WebUI, and
-	  menu system. Replaces standalone pixelpilot and individual component
-	  packages.
+	  menu system.
+
+	  When Mesa3D (EGL/GLES2/GBM) is enabled, the optional GPU
+	  color-corrected DVR recording pipeline is compiled in.
