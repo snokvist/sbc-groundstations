@@ -1,14 +1,15 @@
 ################################################################################
-# RTL8821CS package (external kernel module — SDIO WiFi)
+# RTL8821CS WiFi — lwfinger/rtw88 backport with SDIO support
+#
+# Builds all rtw88 modules (core, sdio, usb, pci, per-chip).
+# RTL8821CS needs: rtw_core, rtw_sdio, rtw_8821c, rtw_8821cs
+# Firmware: /lib/firmware/rtw88/ (from linux-firmware)
 ################################################################################
 
-RTL8821CS_VERSION = 1569a382e9af28a5e2160f8c96b2fd1b3523e008
-RTL8821CS_SITE = https://github.com/lwfinger/rtl8821cs/archive
-RTL8821CS_SOURCE = $(RTL8821CS_VERSION).tar.gz
+RTL8821CS_VERSION = d2258b4de21aeabf7ef85ec0cada1f3cff9bcbe0
+RTL8821CS_SITE = $(call github,lwfinger,rtw88,$(RTL8821CS_VERSION))
 RTL8821CS_LICENSE = GPL-2.0
-RTL8821CS_MODULE_MAKE_OPTS = \
-	CONFIG_RTL8821CS=m \
-	USER_EXTRA_CFLAGS="-Wno-error"
 
+# The lwfinger Makefile builds all obj-m modules, no CONFIG_ needed
 $(eval $(kernel-module))
 $(eval $(generic-package))
