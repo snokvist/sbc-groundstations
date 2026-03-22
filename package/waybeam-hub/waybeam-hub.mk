@@ -2,14 +2,14 @@
 #
 # waybeam-hub (ground station — built from source)
 #
-# Builds waybeam-hub ground binary from the DVR color-correct branch.
-# Requires: rockchip-mpp, gstreamer, libdrm, eudev, libpng, librga.
-# Optional: mesa3d (EGL/GLES2/GBM) for color-corrected DVR recording.
+# Source comes from local override (WAYBEAM_HUB_OVERRIDE_SRCDIR) since
+# the repo is private. Set in waybeam-local.mk.
 #
 ###############################################################################
 
-WAYBEAM_HUB_VERSION = claude/review-librga-integration-ZkXYG
-WAYBEAM_HUB_SITE = $(call github,snokvist,waybeam-hub,$(WAYBEAM_HUB_VERSION))
+WAYBEAM_HUB_VERSION = 1.0
+WAYBEAM_HUB_SITE_METHOD = local
+WAYBEAM_HUB_SITE = $(WAYBEAM_HUB_OVERRIDE_SRCDIR)
 WAYBEAM_HUB_DEPENDENCIES = rockchip-mpp gstreamer1 gst1-plugins-base \
 	libdrm eudev libgpiod cjson libcurl libpng librga
 
