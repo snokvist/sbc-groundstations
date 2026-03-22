@@ -45,9 +45,20 @@ define LINUX_RK_PATCHES_AFTER_RSYNC
 endef
 LINUX_POST_RSYNC_HOOKS += LINUX_RK_PATCHES_AFTER_RSYNC
 
-# Panel-generic-dsi injection disabled for now — DSI bring-up pending.
-# When ready, uncomment and change LINUX_POST_PATCH_HOOKS.
-# See memory/rgb20pro_dsi_findings.md for details.
+# ---- Inject panel-generic-dsi driver into kernel tree as built-in ----
+# BSP DRM component framework requires panel drivers to be built-in (=y).
+# A module loads too late → -EPROBE_DEFER → entire DRM bind fails → no HDMI.
+define LINUX_INJECT_PANEL_GENERIC_DSI
+	@echo "Post-patch: injecting panel-generic-dsi into kernel tree (built-in)"
+	$(INSTALL) -m 0644 \
+		$(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/package/panel-generic-dsi/src/panel-generic-dsi.c \
+		$(@D)/drivers/gpu/drm/panel/panel-generic-dsi.c
+	@if ! grep -q 'panel-generic-dsi' $(@D)/drivers/gpu/drm/panel/Makefile; then \
+		echo 'obj-y += panel-generic-dsi.o' >> $(@D)/drivers/gpu/drm/panel/Makefile; \
+		echo "  Added panel-generic-dsi.o to panel Makefile"; \
+	fi
+endef
+LINUX_POST_PATCH_HOOKS += LINUX_INJECT_PANEL_GENERIC_DSI
 
 # ---- Copy regulatory.db into kernel build tree for built-in firmware ----
 define LINUX_REGDB_COPY_FOR_BUILTIN_FW
@@ -91,5 +102,12 @@ define LINUX_RECOMPILE_RGB20PRO_DTB
 		-o $(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rgb20pro.dtb \
 		$(@D)/arch/arm64/boot/dts/rockchip/.rgb20pro_preprocessed.dts
 	@echo "  DTB recompiled: $$(ls -la $(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rgb20pro.dtb | awk '{print $$5}') bytes"
+	$(INSTALL) -m 0644 \
+		$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rgb20pro.dtb \
+		$(TARGET_DIR)/boot/rockchip/rk3566-powkiddy-rgb20pro.dtb
+	$(INSTALL) -m 0644 \
+		$(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rgb20pro.dtb \
+		$(BINARIES_DIR)/rockchip/rk3566-powkiddy-rgb20pro.dtb
+	@echo "  DTB installed to target and images"
 endef
-LINUX_POST_BUILD_HOOKS += LINUX_RECOMPILE_RGB20PRO_DTB
+LINUX_POST_INSTALL_IMAGES_HOOKS += LINUX_RECOMPILE_RGB20PRO_DTB

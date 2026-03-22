@@ -399,7 +399,7 @@
 /* BSP dsi0 node lacks port@1 — driver needs it for drm_of_find_panel_or_bridge().
    Panel driver (panel-generic-dsi) is injected into kernel as built-in via local.mk. */
 &dsi0 {
-	status = "disabled";
+	status = "disabled"; /* crashes boot — see memory/rgb20pro_dsi_findings.md */
 
 	ports {
 		port@1 {
@@ -472,7 +472,6 @@
 };
 
 /* ---- VOP: route DSI0 through VP1 ---- */
-// DSI disabled — crashes VOP/DRM binding, needs further investigation
 //&dsi0_in_vp1 {
 //	status = "okay";
 //};
