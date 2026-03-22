@@ -259,14 +259,51 @@
 	status = "disabled";
 };
 
-/* ---- RK817 charger (add to existing PMIC on i2c0) ---- */
+/* ---- RK817 battery + charger (add to existing PMIC on i2c0) ---- */
+/* BSP MFD driver matches sub-devices by of_compatible, so these nodes
+   need compatible properties matching the mfd_cell of_compatible strings. */
 &i2c0 {
 	pmic@20 {
+		rk817_battery: battery {
+			compatible = "rk817,battery";
+			monitored-battery = <&battery>;
+
+			/* BSP driver properties (different from mainline) */
+			ocv_table = <
+				3400 3475 3500 3525 3550
+				3572 3590 3605 3620 3637
+				3660 3690 3724 3760 3800
+				3845 3890 3940 3990 4050
+				4148>;
+			design_capacity = <5000>;
+			design_qmax = <5500>;
+			bat_res = <100>;
+			sleep_enter_current = <300>;
+			sleep_exit_current = <300>;
+			sleep_filter_current = <100>;
+			power_off_thresd = <3400>;
+			sample_res = <10>;
+		};
+
 		rk817_charger: charger {
+			compatible = "rk817,charger";
 			monitored-battery = <&battery>;
 			rockchip,resistor-sense-micro-ohms = <10000>;
 			rockchip,sleep-enter-current-microamp = <300000>;
 			rockchip,sleep-filter-current-microamp = <100000>;
+
+			/* BSP driver properties */
+			max_chrg_current = <2000>;
+			max_input_current = <2000>;
+			max_chrg_voltage = <4250>;
+			min_input_voltage = <4500>;
+			chrg_finish_cur = <300>;
+			chrg_term_mode = <0>;
+			virtual_power = <0>;
+			power_dc2otg = <0>;
+			sample_res = <10>;
+			otg5v_suspend_enable = <1>;
+			gate_function_disable = <0>;
 		};
 	};
 };
