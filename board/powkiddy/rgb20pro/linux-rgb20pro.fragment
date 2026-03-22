@@ -1,0 +1,58 @@
+# RGB20Pro kernel configuration fragment
+# Extends the waybeam base with RGB20Pro-specific hardware support
+
+# ---- Display panel ----
+# The RGB20Pro has a 3.2" 1024x768 MIPI DSI panel.
+# TODO: Identify the exact panel controller and enable the correct driver.
+# Candidates (enable whichever matches your hardware):
+CONFIG_DRM_PANEL_NEWVISION_NV3051D=m
+CONFIG_DRM_PANEL_SITRONIX_ST7703=m
+# The RGB30 uses a panel driver registered as "powkiddy,rgb30-panel" in panel-sitronix-st7703.
+# The RGB20Pro's panel compatible is not yet upstream and may need a custom init sequence.
+
+# ---- MIPI DSI ----
+CONFIG_DRM_DW_MIPI_DSI=y
+CONFIG_PHY_ROCKCHIP_DPHY_RX0=y
+
+# ---- ADC joystick (analog sticks) ----
+CONFIG_INPUT_JOYSTICK=y
+CONFIG_JOYSTICK_ADC=m
+
+# ---- GPIO keys (gamepad buttons, volume) ----
+CONFIG_KEYBOARD_GPIO=y
+CONFIG_KEYBOARD_GPIO_POLLED=m
+CONFIG_INPUT_MATRIXKMAP=y
+
+# ---- Battery / Power management (RK817 PMIC) ----
+CONFIG_MFD_RK8XX_I2C=y
+CONFIG_REGULATOR_RK808=y
+CONFIG_CHARGER_RK817=m
+CONFIG_BATTERY_RK817=m
+CONFIG_RTC_DRV_RK808=y
+
+# ---- WiFi: RTL8723DS (SDIO) ----
+CONFIG_RTL8723DS=m
+CONFIG_BT_HCIUART_RTL=y
+
+# ---- LEDs (PWM-driven status/charge indicators) ----
+CONFIG_LEDS_PWM=m
+CONFIG_LEDS_GPIO=m
+CONFIG_LEDS_TRIGGER_DEFAULT_ON=m
+
+# ---- PWM backlight ----
+CONFIG_BACKLIGHT_PWM=y
+
+# ---- USB OTG ----
+CONFIG_USB_DWC3=y
+CONFIG_USB_DWC3_OF_SIMPLE=y
+CONFIG_PHY_ROCKCHIP_INNO_USB2=y
+
+# ---- Audio (RK817 codec + headphone jack) ----
+CONFIG_SND_SOC_RK817=m
+CONFIG_SND_SOC_ROCKCHIP=y
+CONFIG_SND_SOC_ROCKCHIP_I2S_TDM=y
+
+# ---- HDMI output ----
+CONFIG_DRM_DW_HDMI=y
+CONFIG_DRM_ROCKCHIP=y
+CONFIG_ROCKCHIP_VOP2=y
