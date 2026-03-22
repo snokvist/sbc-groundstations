@@ -27,6 +27,11 @@ choice
     help
       Select how to configure the gadget mode GPIO detection.
 
+config BR2_BOARD_GPIO_CONFIG_NONE
+    bool "Disabled (no GPIO detection)"
+    help
+      No factory reset or gadget mode GPIO detection.
+
 config BR2_BOARD_GPIO_CONFIG_CHIP_LINE
     bool "Use GPIO chip and line"
     help

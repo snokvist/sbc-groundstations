@@ -129,12 +129,7 @@ BR2_PACKAGE_HOST_SWIG=y
 BR2_PACKAGE_HOST_RKDEVELOPTOOL=y
 BR2_PACKAGE_YQ=y
 BR2_PACKAGE_DRM_INFO=y
-# GPIO detection disabled — RGB20Pro has no factory-reset/gadget GPIO pins.
-# Note: the init script has a bug where gpioget runs with empty args if
-# PIN_NAME is selected with empty pin names, crashing init.
-# BR2_BOARD_GPIO_CONFIG_PIN_NAME is not set
-BR2_FACTORY_RESET_GPIO_PIN_NAME=""
-BR2_GADGET_MODE_GPIO_PIN_NAME=""
+BR2_BOARD_GPIO_CONFIG_NONE=y
 BR2_PACKAGE_LRZSZ=y
 
 ## NETWORK CARDS
