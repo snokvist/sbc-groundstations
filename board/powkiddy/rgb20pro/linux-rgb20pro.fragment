@@ -3,25 +3,27 @@
 
 # ---- Display panel ----
 # The RGB20Pro has a 3.2" 1024x768 MIPI DSI panel.
-# TODO: Identify the exact panel controller and enable the correct driver.
-# Candidates (enable whichever matches your hardware):
+# ROCKNIX uses a custom "generic-dsi" panel driver for this device.
+# We need to either port that driver or use an existing BSP panel driver.
+# Enable candidates - one of these should match or a custom patch is needed:
 CONFIG_DRM_PANEL_NEWVISION_NV3051D=m
 CONFIG_DRM_PANEL_SITRONIX_ST7703=m
-# The RGB30 uses a panel driver registered as "powkiddy,rgb30-panel" in panel-sitronix-st7703.
-# The RGB20Pro's panel compatible is not yet upstream and may need a custom init sequence.
 
 # ---- MIPI DSI ----
 CONFIG_DRM_DW_MIPI_DSI=y
-CONFIG_PHY_ROCKCHIP_DPHY_RX0=y
+CONFIG_PHY_ROCKCHIP_INNO_DSIDPHY=y
 
-# ---- ADC joystick (analog sticks) ----
+# ---- Joystick / Gamepad ----
+# The RGB20Pro uses a single SARADC channel with analog mux for joysticks.
+# ROCKNIX has a custom "rocknix-singleadc-joypad" driver.
+# Either port that driver or use the mainline adc-joystick with adaptation.
 CONFIG_INPUT_JOYSTICK=y
 CONFIG_JOYSTICK_ADC=m
+CONFIG_INPUT_FF_MEMLESS=m
 
-# ---- GPIO keys (gamepad buttons, volume) ----
+# ---- GPIO keys (volume buttons) ----
 CONFIG_KEYBOARD_GPIO=y
 CONFIG_KEYBOARD_GPIO_POLLED=m
-CONFIG_INPUT_MATRIXKMAP=y
 
 # ---- Battery / Power management (RK817 PMIC) ----
 CONFIG_MFD_RK8XX_I2C=y
@@ -29,17 +31,23 @@ CONFIG_REGULATOR_RK808=y
 CONFIG_CHARGER_RK817=m
 CONFIG_BATTERY_RK817=m
 CONFIG_RTC_DRV_RK808=y
+CONFIG_POWER_SUPPLY=y
 
-# ---- WiFi: RTL8723DS (SDIO) ----
+# ---- WiFi: RTL8821CS (SDIO) ----
+# Primary WiFi chip; some early units have RTL8723DS instead
+CONFIG_RTL8821CS=m
 CONFIG_RTL8723DS=m
 CONFIG_BT_HCIUART_RTL=y
+CONFIG_BT_RTL=m
 
-# ---- LEDs (PWM-driven status/charge indicators) ----
+# ---- LEDs (PWM-driven green/red indicators) ----
 CONFIG_LEDS_PWM=m
 CONFIG_LEDS_GPIO=m
 CONFIG_LEDS_TRIGGER_DEFAULT_ON=m
 
-# ---- PWM backlight ----
+# ---- PWM ----
+CONFIG_PWM=y
+CONFIG_PWM_ROCKCHIP=y
 CONFIG_BACKLIGHT_PWM=y
 
 # ---- USB OTG ----
@@ -47,12 +55,16 @@ CONFIG_USB_DWC3=y
 CONFIG_USB_DWC3_OF_SIMPLE=y
 CONFIG_PHY_ROCKCHIP_INNO_USB2=y
 
-# ---- Audio (RK817 codec + headphone jack) ----
+# ---- Audio (RK817 codec + headphone jack + speaker amp) ----
 CONFIG_SND_SOC_RK817=m
 CONFIG_SND_SOC_ROCKCHIP=y
 CONFIG_SND_SOC_ROCKCHIP_I2S_TDM=y
+CONFIG_SND_SIMPLE_CARD=m
 
 # ---- HDMI output ----
 CONFIG_DRM_DW_HDMI=y
 CONFIG_DRM_ROCKCHIP=y
 CONFIG_ROCKCHIP_VOP2=y
+
+# ---- Rumble motor (PWM5) ----
+CONFIG_INPUT_MISC=y

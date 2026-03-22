@@ -1,21 +1,30 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 //
 // Device tree for Powkiddy RGB20Pro ground station target.
-// Based on the mainline rk3566-powkiddy-rk2023 family DTS.
+// Derived from ROCKNIX rk3566-powkiddy-rgb20-pro.dts and
+// mainline rk3566-powkiddy-rk2023.dtsi.
 //
 // Hardware:
 //   SoC:     RK3566 (Cortex-A55 quad-core @ 1.8GHz)
 //   RAM:     1GB LPDDR4
-//   Display: 3.2" 1024x768 MIPI DSI IPS
-//   WiFi/BT: RTL8723DS (SDIO)
+//   Display: 3.2" 1024x768 MIPI DSI IPS (65x49mm)
+//   WiFi/BT: RTL8821CS SDIO (some early units: RTL8723DS)
 //   Battery: 5000mAh (RK817 charger)
-//   Audio:   RK817 codec, 3.5mm headphone jack
+//   Audio:   RK817 codec, 3.5mm headphone jack, speaker amp GPIO0_PA6
 //   Storage: Dual MicroSD slots
 //   Video:   Mini HDMI output
+//   Rumble:  PWM5-based motor
 //
-// NOTE: The panel compatible and init sequence need validation on hardware.
-//       The BSP kernel may have different node names than mainline.
-//       Adapt as needed based on the actual Radxa BSP kernel DTS structure.
+// NOTES:
+//   - The panel init sequence is from the ROCKNIX generic-dsi driver.
+//     For the BSP kernel, you may need to either:
+//     (a) Port the ROCKNIX generic-dsi panel driver as a kernel patch, or
+//     (b) Create a proper panel driver with the init sequence below, or
+//     (c) Use a BSP kernel panel driver if one matches this controller.
+//   - GPIO mappings verified against ROCKNIX device detection and quirks.
+//   - The joystick uses a single SARADC channel with analog mux (ROCKNIX
+//     uses a custom rocknix-singleadc-joypad driver). For the BSP kernel,
+//     the standard adc-joystick driver or a ported version may be needed.
 
 /dts-v1/;
 
@@ -26,8 +35,8 @@
 #include "rk3566.dtsi"
 
 / {
-	model = "Powkiddy RGB20Pro";
-	compatible = "powkiddy,rgb20pro", "rockchip,rk3566";
+	model = "Powkiddy RGB20 Pro";
+	compatible = "powkiddy,rgb20-pro", "rockchip,rk3566";
 
 	aliases {
 		mmc0 = &sdhci;
@@ -39,45 +48,182 @@
 		stdout-path = "serial2:1500000n8";
 	};
 
-	/* ---- ADC Joystick (dual analog sticks) ---- */
-	adc-joystick {
-		compatible = "adc-joystick";
-		io-channels = <&saradc 0>, <&saradc 1>,
-			      <&saradc 2>, <&saradc 3>;
-		poll-interval = <60>;
-		#address-cells = <1>;
-		#size-cells = <0>;
+	/*
+	 * ADC Joystick - single SARADC channel with analog mux.
+	 *
+	 * In ROCKNIX this uses the custom "rocknix-singleadc-joypad" driver
+	 * with a single ADC channel (saradc ch3) and GPIO-based mux:
+	 *   Mux A: GPIO0_PB6, Mux B: GPIO0_PB7, Enable: GPIO0_PB5
+	 *   4 channels (LX, LY, RX, RY), both axes inverted
+	 *
+	 * For the BSP kernel, you can either:
+	 * (a) Port the rocknix-singleadc-joypad driver, or
+	 * (b) Use the mainline adc-joystick with 4 separate ADC channels
+	 *     (if the BSP kernel SARADC driver supports it), or
+	 * (c) Write a simple userspace daemon reading the muxed ADC.
+	 *
+	 * Below is the ROCKNIX-style node for reference. Uncomment and adapt
+	 * based on which driver you use.
+	 */
+	joypad: joypad {
+		compatible = "rocknix-singleadc-joypad";
+		status = "okay";
 
-		axis@0 {
-			reg = <0>;
-			abs-flat = <32>;
-			abs-fuzz = <32>;
-			abs-range = <0 4095>;
-			linux,code = <ABS_X>;
+		joypad-name = "rgb20pro_joypad";
+		joypad-product = <0x1101>;
+		joypad-revision = <0x0100>;
+
+		io-channels = <&saradc 3>;
+		io-channel-names = "amux_adc";
+
+		/* Analog mux GPIOs */
+		amux-a-gpios = <&gpio0 RK_PB6 GPIO_ACTIVE_LOW>;
+		amux-b-gpios = <&gpio0 RK_PB7 GPIO_ACTIVE_LOW>;
+		amux-en-gpios = <&gpio0 RK_PB5 GPIO_ACTIVE_LOW>;
+
+		/* Stick calibration */
+		amux-count = <4>;
+		amux-scale = <2>;
+		amux-deadzone = <64>;
+		amux-fuzz = <32>;
+		amux-flat = <32>;
+
+		/* All axes inverted on this device */
+		invert-absx;
+		invert-absy;
+		invert-absrx;
+		invert-absry;
+
+		/* Rumble motor on PWM5 */
+		pwms = <&pwm5 0 1000000000 0>;
+		rumble-boost-weak = <0x0000>;
+		rumble-boost-strong = <0x0000>;
+
+		/* Digital button GPIOs (active low, accent accent pull-up) */
+		button-adc-count = <0>;
+
+		poll-interval = <16>;
+
+		button-sw1 {
+			gpios = <&gpio3 RK_PA3 GPIO_ACTIVE_LOW>;
+			label = "DPAD-UP";
+			linux,code = <BTN_DPAD_UP>;
 		};
 
-		axis@1 {
-			reg = <1>;
-			abs-flat = <32>;
-			abs-fuzz = <32>;
-			abs-range = <0 4095>;
-			linux,code = <ABS_Y>;
+		button-sw2 {
+			gpios = <&gpio3 RK_PA4 GPIO_ACTIVE_LOW>;
+			label = "DPAD-DOWN";
+			linux,code = <BTN_DPAD_DOWN>;
 		};
 
-		axis@2 {
-			reg = <2>;
-			abs-flat = <32>;
-			abs-fuzz = <32>;
-			abs-range = <0 4095>;
-			linux,code = <ABS_RX>;
+		button-sw3 {
+			gpios = <&gpio3 RK_PA6 GPIO_ACTIVE_LOW>;
+			label = "DPAD-LEFT";
+			linux,code = <BTN_DPAD_LEFT>;
 		};
 
-		axis@3 {
-			reg = <3>;
-			abs-flat = <32>;
-			abs-fuzz = <32>;
-			abs-range = <0 4095>;
-			linux,code = <ABS_RY>;
+		button-sw4 {
+			gpios = <&gpio3 RK_PA5 GPIO_ACTIVE_LOW>;
+			label = "DPAD-RIGHT";
+			linux,code = <BTN_DPAD_RIGHT>;
+		};
+
+		button-sw5 {
+			gpios = <&gpio3 RK_PC3 GPIO_ACTIVE_LOW>;
+			label = "SOUTH";
+			linux,code = <BTN_SOUTH>;
+		};
+
+		button-sw6 {
+			gpios = <&gpio3 RK_PC2 GPIO_ACTIVE_LOW>;
+			label = "EAST";
+			linux,code = <BTN_EAST>;
+		};
+
+		button-sw7 {
+			gpios = <&gpio3 RK_PC0 GPIO_ACTIVE_LOW>;
+			label = "NORTH";
+			linux,code = <BTN_NORTH>;
+		};
+
+		button-sw8 {
+			gpios = <&gpio3 RK_PC1 GPIO_ACTIVE_LOW>;
+			label = "WEST";
+			linux,code = <BTN_WEST>;
+		};
+
+		button-sw9 {
+			gpios = <&gpio3 RK_PB6 GPIO_ACTIVE_LOW>;
+			label = "SELECT";
+			linux,code = <BTN_SELECT>;
+		};
+
+		button-sw10 {
+			gpios = <&gpio3 RK_PB5 GPIO_ACTIVE_LOW>;
+			label = "START";
+			linux,code = <BTN_START>;
+		};
+
+		button-sw11 {
+			gpios = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
+			label = "MODE";
+			linux,code = <BTN_MODE>;
+		};
+
+		button-sw12 {
+			gpios = <&gpio3 RK_PB1 GPIO_ACTIVE_LOW>;
+			label = "TL";
+			linux,code = <BTN_TL>;
+		};
+
+		button-sw13 {
+			gpios = <&gpio3 RK_PB3 GPIO_ACTIVE_LOW>;
+			label = "TR";
+			linux,code = <BTN_TR>;
+		};
+
+		button-sw14 {
+			gpios = <&gpio3 RK_PB2 GPIO_ACTIVE_LOW>;
+			label = "TL2";
+			linux,code = <BTN_TL2>;
+		};
+
+		button-sw15 {
+			gpios = <&gpio3 RK_PB4 GPIO_ACTIVE_LOW>;
+			label = "TR2";
+			linux,code = <BTN_TR2>;
+		};
+
+		button-sw16 {
+			gpios = <&gpio3 RK_PA1 GPIO_ACTIVE_LOW>;
+			label = "THUMBL";
+			linux,code = <BTN_THUMBL>;
+		};
+
+		button-sw17 {
+			gpios = <&gpio3 RK_PA2 GPIO_ACTIVE_LOW>;
+			label = "THUMBR";
+			linux,code = <BTN_THUMBR>;
+		};
+	};
+
+	/* Volume buttons (separate node, autorepeat) */
+	gpio_keys_vol: gpio-keys-vol {
+		compatible = "gpio-keys";
+		autorepeat;
+		pinctrl-0 = <&btn_pins_vol>;
+		pinctrl-names = "default";
+
+		button-vol-down {
+			gpios = <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
+			label = "VOLUMEDOWN";
+			linux,code = <KEY_VOLUMEDOWN>;
+		};
+
+		button-vol-up {
+			gpios = <&gpio3 RK_PA7 GPIO_ACTIVE_LOW>;
+			label = "VOLUMEUP";
+			linux,code = <KEY_VOLUMEUP>;
 		};
 	};
 
@@ -86,9 +232,14 @@
 		compatible = "pwm-backlight";
 		power-supply = <&vcc_sys>;
 		pwms = <&pwm4 0 25000 0>;
+		brightness-levels = <0 1 2 3 4 5 6 7 8 9
+				     10 20 30 40 50 60 70 80 90 100
+				     110 120 130 140 150 160 170 180 190 200
+				     210 220 230 240 255>;
+		default-brightness-level = <15>;
 	};
 
-	/* ---- Battery ---- */
+	/* ---- Battery (5000mAh) ---- */
 	battery: battery {
 		compatible = "simple-battery";
 		charge-full-design-microamp-hours = <5000000>;
@@ -96,159 +247,42 @@
 		constant-charge-current-max-microamp = <2000000>;
 		constant-charge-voltage-max-microvolt = <4200000>;
 		factory-internal-resistance-micro-ohms = <117000>;
-		voltage-max-design-microvolt = <4172000>;
-		voltage-min-design-microvolt = <3400000>;
+		voltage-max-design-microvolt = <4148000>;
+		voltage-min-design-microvolt = <3500000>;
 
-		/* TODO: Validate OCV table for 5000mAh cell */
 		ocv-capacity-celsius = <20>;
 		ocv-capacity-table-0 =
-			<4172000 100>, <4054000 95>, <3984000 90>,
-			<3926000 85>, <3874000 80>, <3826000 75>,
-			<3783000 70>, <3746000 65>, <3714000 60>,
-			<3683000 55>, <3650000 50>, <3628000 45>,
-			<3612000 40>, <3600000 35>, <3587000 30>,
-			<3571000 25>, <3552000 20>, <3525000 15>,
-			<3492000 10>, <3446000 5>, <3400000 0>;
+			<4148000 100>, <4050000 95>, <3990000 90>,
+			<3940000 85>, <3890000 80>, <3845000 75>,
+			<3800000 70>, <3760000 65>, <3724000 60>,
+			<3690000 55>, <3660000 50>, <3637000 45>,
+			<3620000 40>, <3605000 35>, <3590000 30>,
+			<3572000 25>, <3550000 20>, <3525000 15>,
+			<3500000 10>, <3475000 5>, <3400000 0>;
 	};
 
-	/* ---- GPIO Buttons (gamepad) ---- */
-	gpio_keys_control: gpio-keys-control {
-		compatible = "gpio-keys";
-		pinctrl-0 = <&btn_pins_ctrl>;
-		pinctrl-names = "default";
-
-		button-a {
-			gpios = <&gpio3 RK_PC2 GPIO_ACTIVE_LOW>;
-			label = "EAST";
-			linux,code = <BTN_EAST>;
-		};
-
-		button-b {
-			gpios = <&gpio3 RK_PC3 GPIO_ACTIVE_LOW>;
-			label = "SOUTH";
-			linux,code = <BTN_SOUTH>;
-		};
-
-		button-dpad-down {
-			gpios = <&gpio3 RK_PA4 GPIO_ACTIVE_LOW>;
-			label = "DPAD-DOWN";
-			linux,code = <BTN_DPAD_DOWN>;
-		};
-
-		button-dpad-left {
-			gpios = <&gpio3 RK_PA5 GPIO_ACTIVE_LOW>;
-			label = "DPAD-LEFT";
-			linux,code = <BTN_DPAD_LEFT>;
-		};
-
-		button-dpad-right {
-			gpios = <&gpio3 RK_PA6 GPIO_ACTIVE_LOW>;
-			label = "DPAD-RIGHT";
-			linux,code = <BTN_DPAD_RIGHT>;
-		};
-
-		button-dpad-up {
-			gpios = <&gpio3 RK_PA3 GPIO_ACTIVE_LOW>;
-			label = "DPAD-UP";
-			linux,code = <BTN_DPAD_UP>;
-		};
-
-		button-l1 {
-			gpios = <&gpio3 RK_PB1 GPIO_ACTIVE_LOW>;
-			label = "TL";
-			linux,code = <BTN_TL>;
-		};
-
-		button-l2 {
-			gpios = <&gpio3 RK_PB2 GPIO_ACTIVE_LOW>;
-			label = "TL2";
-			linux,code = <BTN_TL2>;
-		};
-
-		button-r1 {
-			gpios = <&gpio3 RK_PB3 GPIO_ACTIVE_LOW>;
-			label = "TR";
-			linux,code = <BTN_TR>;
-		};
-
-		button-r2 {
-			gpios = <&gpio3 RK_PB4 GPIO_ACTIVE_LOW>;
-			label = "TR2";
-			linux,code = <BTN_TR2>;
-		};
-
-		button-select {
-			gpios = <&gpio3 RK_PA2 GPIO_ACTIVE_LOW>;
-			label = "SELECT";
-			linux,code = <BTN_SELECT>;
-		};
-
-		button-start {
-			gpios = <&gpio3 RK_PA1 GPIO_ACTIVE_LOW>;
-			label = "START";
-			linux,code = <BTN_START>;
-		};
-
-		button-thumbl {
-			gpios = <&gpio3 RK_PA7 GPIO_ACTIVE_LOW>;
-			label = "THUMBL";
-			linux,code = <BTN_THUMBL>;
-		};
-
-		button-thumbr {
-			gpios = <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
-			label = "THUMBR";
-			linux,code = <BTN_THUMBR>;
-		};
-
-		button-x {
-			gpios = <&gpio3 RK_PC4 GPIO_ACTIVE_LOW>;
-			label = "NORTH";
-			linux,code = <BTN_NORTH>;
-		};
-
-		button-y {
-			gpios = <&gpio3 RK_PC5 GPIO_ACTIVE_LOW>;
-			label = "WEST";
-			linux,code = <BTN_WEST>;
-		};
-	};
-
-	/* ---- Volume Buttons ---- */
-	gpio_keys_vol: gpio-keys-vol {
-		compatible = "gpio-keys";
-		autorepeat;
-		pinctrl-0 = <&btn_pins_vol>;
-		pinctrl-names = "default";
-
-		button-vol-down {
-			gpios = <&gpio3 RK_PB6 GPIO_ACTIVE_LOW>;
-			label = "VOLUMEDOWN";
-			linux,code = <KEY_VOLUMEDOWN>;
-		};
-
-		button-vol-up {
-			gpios = <&gpio3 RK_PB5 GPIO_ACTIVE_LOW>;
-			label = "VOLUMEUP";
-			linux,code = <KEY_VOLUMEUP>;
-		};
-	};
-
-	/* ---- LEDs ---- */
+	/* ---- LEDs (PWM-driven) ---- */
 	leds {
-		compatible = "gpio-leds";
+		compatible = "pwm-leds";
 
 		green_led: led-0 {
-			color = <0>; /* LED_COLOR_ID_GREEN */
-			function = "status";
-			gpios = <&gpio0 RK_PC5 GPIO_ACTIVE_HIGH>;
+			label = "green:status";
+			pwms = <&pwm6 0 25000 0>;
+			max-brightness = <255>;
 		};
 
 		red_led: led-1 {
-			color = <1>; /* LED_COLOR_ID_RED */
-			function = "charging-indicator";
-			gpios = <&gpio0 RK_PC6 GPIO_ACTIVE_HIGH>;
+			label = "red:charging";
+			pwms = <&pwm7 0 25000 0>;
+			max-brightness = <255>;
 		};
+	};
+
+	/* ---- Speaker amplifier enable ---- */
+	spk_amp: audio-amplifier {
+		compatible = "simple-audio-amplifier";
+		enable-gpios = <&gpio0 RK_PA6 GPIO_ACTIVE_HIGH>;
+		sound-name-prefix = "Speaker Amp";
 	};
 
 	/* ---- LCD power ---- */
@@ -275,12 +309,21 @@
 		regulator-name = "vcc_sys";
 	};
 
-	/* ---- WiFi power ---- */
+	/* ---- WiFi power sequence ---- */
+	sdio_pwrseq: sdio-pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		pinctrl-0 = <&wifi_enable_h>;
+		pinctrl-names = "default";
+		reset-gpios = <&gpio4 RK_PA2 GPIO_ACTIVE_LOW>;
+		post-power-on-delay-ms = <200>;
+	};
+
+	/* ---- WiFi power regulator ---- */
 	vcc_wifi: regulator-vcc-wifi {
 		compatible = "regulator-fixed";
 		enable-active-high;
 		gpio = <&gpio0 RK_PA0 GPIO_ACTIVE_HIGH>;
-		pinctrl-0 = <&wifi_enable_h>;
+		pinctrl-0 = <&wifi_pwr>;
 		pinctrl-names = "default";
 		regulator-always-on;
 		regulator-boot-on;
@@ -288,6 +331,14 @@
 		regulator-max-microvolt = <3300000>;
 		regulator-name = "vcc_wifi";
 	};
+};
+
+/* ---- Clock configuration ---- */
+&cru {
+	assigned-clocks = <&pmucru CLK_RTC_32K>, <&cru PLL_GPLL>,
+			  <&pmucru PLL_PPLL>, <&cru PLL_VPLL>;
+	assigned-clock-rates = <32768>, <1200000000>,
+			       <200000000>, <102000000>;
 };
 
 /* ---- CPU voltage regulator (TCS4525) ---- */
@@ -324,7 +375,7 @@
 		clock-output-names = "rk808-clkout1", "rk808-clkout2";
 		#clock-cells = <1>;
 		pinctrl-0 = <&pmic_int_l>;
-		pinctrl-names = "default";
+		pinct-names = "default";
 		wakeup-source;
 
 		vcc1-supply = <&vcc_sys>;
@@ -541,16 +592,21 @@
 	status = "okay";
 
 	panel: panel@0 {
-		/* TODO: Replace with the actual panel compatible for the RGB20Pro.
-		 * The RGB20Pro has a 3.2" 1024x768 IPS panel. The exact controller
-		 * needs to be identified (possibly a variant of ST7703 or NV3051D).
+		/*
+		 * The RGB20Pro uses a 1024x768 MIPI DSI panel (65x49mm).
+		 * ROCKNIX uses a custom "rocknix,generic-dsi" driver with the
+		 * init sequence embedded in a panel_description DT property.
 		 *
-		 * Options to try:
-		 *   "powkiddy,rgb30-panel"  (if same panel family)
-		 *   "powkiddy,rk2023-panel" (NV3051D based)
-		 *   Or extract the init sequence from stock firmware.
+		 * For the Radxa BSP kernel, options:
+		 * 1. Port the ROCKNIX generic-dsi driver (simplest, see
+		 *    panel-generic-dsi.c from github.com/stolen/overlay_server)
+		 * 2. Create a proper panel driver with the init sequence
+		 * 3. Check if the BSP kernel has a matching panel driver
+		 *
+		 * The panel mode: clock=51072kHz, 1024x768
+		 * DSI config: 4 lanes, RGB888, burst mode, LPM, no EOT
 		 */
-		compatible = "powkiddy,rgb30-panel";
+		compatible = "powkiddy,rgb20-pro-panel";
 		reg = <0>;
 		backlight = <&backlight>;
 		pinctrl-names = "default";
@@ -558,6 +614,10 @@
 		reset-gpios = <&gpio4 RK_PA0 GPIO_ACTIVE_LOW>;
 		vcc-supply = <&vcc3v3_lcd0_n>;
 		iovcc-supply = <&vcc3v3_lcd0_n>;
+
+		/* Physical size */
+		width-mm = <65>;
+		height-mm = <49>;
 
 		port {
 			mipi_in_panel: endpoint {
@@ -593,20 +653,21 @@
 	status = "okay";
 };
 
-/* ---- Clock configuration ---- */
-&cru {
-	assigned-clocks = <&pmucru CLK_RTC_32K>, <&cru PLL_GPLL>,
-			  <&pmucru PLL_PPLL>, <&cru PLL_VPLL>;
-	/* TODO: PLL_VPLL rate depends on the panel pixel clock.
-	 * 292500000 is used for the RGB30 (720x720).
-	 * 1024x768 will likely need a different value. */
-	assigned-clock-rates = <32768>, <1200000000>,
-			       <200000000>, <292500000>;
+/* ---- PWM channels ---- */
+&pwm4 {
+	status = "okay"; /* backlight */
 };
 
-/* ---- PWM (backlight) ---- */
-&pwm4 {
-	status = "okay";
+&pwm5 {
+	status = "okay"; /* rumble motor */
+};
+
+&pwm6 {
+	status = "okay"; /* green LED */
+};
+
+&pwm7 {
+	status = "okay"; /* red LED */
 };
 
 /* ---- ADC ---- */
@@ -627,7 +688,7 @@
 	status = "okay";
 };
 
-/* ---- SD card (primary) ---- */
+/* ---- SD card (primary, OS slot) ---- */
 &sdmmc0 {
 	bus-width = <4>;
 	cap-sd-highspeed;
@@ -643,12 +704,13 @@
 	status = "okay";
 };
 
-/* ---- WiFi (RTL8723DS over SDIO) ---- */
+/* ---- WiFi (RTL8821CS over SDIO) ---- */
 &sdmmc1 {
 	bus-width = <4>;
 	cap-sd-highspeed;
 	cap-sdio-irq;
 	keep-power-in-suspend;
+	mmc-pwrseq = <&sdio_pwrseq>;
 	non-removable;
 	no-mmc;
 	no-sd;
@@ -664,14 +726,17 @@
 	status = "okay";
 };
 
-/* ---- Bluetooth (RTL8723DS) ---- */
+/* ---- Bluetooth (RTL8821CS) ---- */
 &uart1 {
 	status = "okay";
+	pinctrl-0 = <&uart1m0_xfer &uart1m0_ctsn &uart1m0_rtsn>;
+	pinctrl-names = "default";
 
 	bluetooth {
-		compatible = "realtek,rtl8723ds-bt", "realtek,rtl8723bs-bt";
-		device-wake-gpios = <&gpio0 RK_PB7 GPIO_ACTIVE_HIGH>;
-		host-wake-gpios = <&gpio0 RK_PC0 GPIO_ACTIVE_HIGH>;
+		compatible = "realtek,rtl8821cs-bt", "realtek,rtl8723bs-bt";
+		device-wake-gpios = <&gpio4 RK_PA4 GPIO_ACTIVE_HIGH>;
+		enable-gpios = <&gpio4 RK_PA3 GPIO_ACTIVE_HIGH>;
+		host-wake-gpios = <&gpio4 RK_PA5 GPIO_ACTIVE_HIGH>;
 	};
 };
 
@@ -705,30 +770,10 @@
 /* ---- Pin control ---- */
 &pinctrl {
 	btn-pins {
-		btn_pins_ctrl: btn-pins-ctrl {
-			rockchip,pins =
-				<3 RK_PA1 0 &pcfg_pull_up>,
-				<3 RK_PA2 0 &pcfg_pull_up>,
-				<3 RK_PA3 0 &pcfg_pull_up>,
-				<3 RK_PA4 0 &pcfg_pull_up>,
-				<3 RK_PA5 0 &pcfg_pull_up>,
-				<3 RK_PA6 0 &pcfg_pull_up>,
-				<3 RK_PA7 0 &pcfg_pull_up>,
-				<3 RK_PB0 0 &pcfg_pull_up>,
-				<3 RK_PB1 0 &pcfg_pull_up>,
-				<3 RK_PB2 0 &pcfg_pull_up>,
-				<3 RK_PB3 0 &pcfg_pull_up>,
-				<3 RK_PB4 0 &pcfg_pull_up>,
-				<3 RK_PC2 0 &pcfg_pull_up>,
-				<3 RK_PC3 0 &pcfg_pull_up>,
-				<3 RK_PC4 0 &pcfg_pull_up>,
-				<3 RK_PC5 0 &pcfg_pull_up>;
-		};
-
 		btn_pins_vol: btn-pins-vol {
 			rockchip,pins =
-				<3 RK_PB5 0 &pcfg_pull_up>,
-				<3 RK_PB6 0 &pcfg_pull_up>;
+				<3 RK_PA7 0 &pcfg_pull_up>,
+				<3 RK_PB0 0 &pcfg_pull_up>;
 		};
 	};
 
@@ -754,7 +799,17 @@
 	wifi {
 		wifi_enable_h: wifi-enable-h {
 			rockchip,pins =
+				<4 RK_PA2 0 &pcfg_pull_none>;
+		};
+
+		wifi_pwr: wifi-pwr {
+			rockchip,pins =
 				<0 RK_PA0 0 &pcfg_pull_none>;
+		};
+
+		wifi_host_wake: wifi-host-wake {
+			rockchip,pins =
+				<4 RK_PA1 0 &pcfg_pull_up>;
 		};
 	};
 };
