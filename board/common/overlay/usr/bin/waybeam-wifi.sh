@@ -66,6 +66,13 @@ load_config() {
     if [ ! -d /sys/kernel/debug/block ]; then
         mount -t debugfs none /sys/kernel/debug 2>/dev/null || true
     fi
+    # Rotate log if over 100KB
+    if [ -f "$LOG_FILE" ]; then
+        _sz=$(wc -c < "$LOG_FILE" 2>/dev/null || echo 0)
+        if [ "$_sz" -gt 102400 ]; then
+            mv "$LOG_FILE" "${LOG_FILE}.old"
+        fi
+    fi
 }
 
 # ---------------------------------------------------------------------------
