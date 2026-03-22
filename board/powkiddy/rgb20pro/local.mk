@@ -72,3 +72,24 @@ define LINUX_REGDB_FORCE_BUILTIN_FW_CONFIG
 	echo 'CONFIG_EXTRA_FIRMWARE_DIR="firmware"' >> $(@D)/.config
 endef
 LINUX_POST_CONFIGURE_HOOKS += LINUX_REGDB_FORCE_BUILTIN_FW_CONFIG
+
+# ---- Recompile DTB with standalone dtc to fix phandle resolution ----
+# The kernel build system produces a DTB with missing cpu-supply and
+# display routing nodes due to dtc phandle resolution differences.
+# Work around by recompiling with standalone CPP+dtc after kernel build.
+define LINUX_RECOMPILE_RGB20PRO_DTB
+	@echo "Recompiling RGB20Pro DTB with standalone dtc"
+	$(HOST_DIR)/bin/aarch64-none-linux-gnu-cpp -nostdinc \
+		-I $(@D)/include -I $(@D)/arch/arm64/boot/dts \
+		-I $(@D)/arch/arm64/boot/dts/rockchip \
+		-undef -D__DTS__ -x assembler-with-cpp \
+		$(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/board/powkiddy/rgb20pro/dts/rockchip/rk3566-powkiddy-rgb20pro.dts \
+		-o $(@D)/arch/arm64/boot/dts/rockchip/.rgb20pro_preprocessed.dts
+	$(@D)/scripts/dtc/dtc -@ \
+		-W no-unique_unit_address -W no-avoid_unnecessary_addr_size \
+		-I dts -O dtb \
+		-o $(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rgb20pro.dtb \
+		$(@D)/arch/arm64/boot/dts/rockchip/.rgb20pro_preprocessed.dts
+	@echo "  DTB recompiled: $$(ls -la $(@D)/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rgb20pro.dtb | awk '{print $$5}') bytes"
+endef
+LINUX_POST_BUILD_HOOKS += LINUX_RECOMPILE_RGB20PRO_DTB
