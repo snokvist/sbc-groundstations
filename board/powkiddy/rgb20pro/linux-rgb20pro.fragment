@@ -18,7 +18,6 @@ CONFIG_PHY_ROCKCHIP_INNO_DSIDPHY=y
 # (package/rocknix-joypad). These kernel configs enable its dependencies.
 CONFIG_INPUT_JOYSTICK=y
 CONFIG_INPUT_FF_MEMLESS=m
-CONFIG_INPUT_POLLDEV=y
 CONFIG_IIO=y
 CONFIG_ROCKCHIP_SARADC=y
 

@@ -41,12 +41,12 @@ Both drivers are enabled in the kernel fragment. ROCKNIX detects the
 variant by checking USB ID `024C:D723`.
 
 ### 3. Kernel Compatibility
-The joypad driver uses `input-polldev.h` (legacy polled input API).
-This was removed in mainline Linux 5.18+. If the BSP kernel is newer,
-the driver needs updating to use `input_setup_polling()` API instead.
+The joypad driver has been ported from the legacy `input-polldev.h` API
+to the modern `input_setup_polling()` API for kernel 6.1+ compatibility.
 
-The panel driver uses `of_gpio_legacy.h` for kernel 6.3+. Check
-compatibility with the actual BSP kernel version.
+The BSP kernel is Radxa 6.1.84. DTS node labels differ from
+mainline/ROCKNIX (e.g. `combphy1_usq` not `combphy1`,
+`usbdrd_dwc3` not `usb_host0_xhci`).
 
 ## Build
 
