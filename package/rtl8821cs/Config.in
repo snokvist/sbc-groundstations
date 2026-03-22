@@ -1,0 +1,8 @@
+config BR2_PACKAGE_RTL8821CS
+	bool "rtl8821cs"
+	depends on BR2_LINUX_KERNEL
+	help
+	  Realtek RTL8821CS SDIO WiFi driver.
+	  Used by the Powkiddy RGB20Pro and similar RK3566 handhelds.
+
+	  https://github.com/lwfinger/rtl8821cs

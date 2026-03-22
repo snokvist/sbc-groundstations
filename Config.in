@@ -20,6 +20,7 @@ source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/wfb-bins-only/Config.in"
 source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/radxa-zero3-gamma/Config.in"
 source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/panel-generic-dsi/Config.in"
 source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/rocknix-joypad/Config.in"
+source "$BR2_EXTERNAL_OPENIPC_SBC_GS_PATH/package/rtl8821cs/Config.in"
 
 choice
     prompt "GPIO configuration method"
