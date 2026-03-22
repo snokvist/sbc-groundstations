@@ -651,18 +651,17 @@
 			"I seq=11 wait=250",
 			"I seq=29 wait=250";
 
-		port {
-			mipi_in_panel: endpoint {
-				remote-endpoint = <&mipi_out_panel>;
-			};
-		};
 	};
 };
 
-&dsi0_in {
-	dsi0_in_vp1: endpoint {
-		remote-endpoint = <&vp1_out_dsi0>;
-	};
+/* BSP defines dsi0_in_vp1 as disabled — enable it for DSI on VP1 */
+&dsi0_in_vp1 {
+	status = "okay";
+};
+
+/* DSI PHY needed for MIPI panel */
+&video_phy0 {
+	status = "okay";
 };
 
 /* ---- HDMI ---- */
@@ -670,10 +669,9 @@
 	status = "okay";
 };
 
-&hdmi_in {
-	hdmi_in_vp0: endpoint {
-		remote-endpoint = <&vp0_out_hdmi>;
-	};
+/* BSP defines hdmi_in_vp0 as disabled — enable it */
+&hdmi_in_vp0 {
+	status = "okay";
 };
 
 /* ---- VOP2 (Video Output Processor) ---- */
@@ -683,6 +681,17 @@
 
 &vop_mmu {
 	status = "okay";
+};
+
+/* ---- Display routes (BSP-specific) ---- */
+&route_dsi0 {
+	status = "okay";
+	connect = <&vp1_out_dsi0>;
+};
+
+&route_hdmi {
+	status = "okay";
+	connect = <&vp0_out_hdmi>;
 };
 
 /* ---- PWM channels ---- */
@@ -773,8 +782,9 @@
 };
 
 /* ---- USB ---- */
-&usb_host0_xhci {
+&usbdrd_dwc3 {
 	status = "okay";
+	dr_mode = "otg";
 };
 
 &usb2phy0 {
@@ -789,7 +799,7 @@
 	status = "okay";
 };
 
-&combphy1 {
+&combphy1_usq {
 	status = "okay";
 };
 
