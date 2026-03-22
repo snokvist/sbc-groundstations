@@ -19,7 +19,7 @@ BR2_LINUX_KERNEL_CUSTOM_TARBALL_LOCATION="$(call github,radxa,kernel,8b0634cfd2b
 BR2_LINUX_KERNEL_PATCH="${BR2_EXTERNAL_OPENIPC_SBC_GS_PATH}/board/radxa/zero3/linux-patches"
 BR2_LINUX_KERNEL_USE_DEFCONFIG=y
 BR2_LINUX_KERNEL_DEFCONFIG="rockchip_linux"
-BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="${BR2_EXTERNAL_OPENIPC_SBC_GS_PATH}/board/radxa/zero3/linux-fragment/radxa-bsp-0001-common-kconfig.conf ${BR2_EXTERNAL_OPENIPC_SBC_GS_PATH}/board/radxa/zero3/linux-fragment/radxa-bsp-0002-rockchip-kconfig.conf ${BR2_EXTERNAL_OPENIPC_SBC_GS_PATH}/board/radxa/zero3/linux-fragment/radxa-bsp-0003-rk2410-kconfig.conf ${BR2_EXTERNAL_OPENIPC_SBC_GS_PATH}/board/radxa/zero3/linux-waybeam.fragment ${BR2_EXTERNAL_OPENIPC_SBC_GS_PATH}/board/powkiddy/rgb20pro/linux-rgb20pro.fragment"
+BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="${BR2_EXTERNAL_OPENIPC_SBC_GS_PATH}/board/radxa/zero3/linux-fragment/radxa-bsp-0001-common-kconfig.conf ${BR2_EXTERNAL_OPENIPC_SBC_GS_PATH}/board/radxa/zero3/linux-fragment/radxa-bsp-0002-rockchip-kconfig.conf ${BR2_EXTERNAL_OPENIPC_SBC_GS_PATH}/board/radxa/zero3/linux-fragment/radxa-bsp-0003-rk2410-kconfig.conf ${BR2_EXTERNAL_OPENIPC_SBC_GS_PATH}/board/radxa/zero3/linux-waybeam.fragment"
 BR2_LINUX_KERNEL_DTS_SUPPORT=y
 BR2_LINUX_KERNEL_INTREE_DTS_NAME="rockchip/rk3566-powkiddy-rgb20pro"
 BR2_LINUX_KERNEL_CUSTOM_DTS_DIR="${BR2_EXTERNAL_OPENIPC_SBC_GS_PATH}/board/powkiddy/rgb20pro/dts"
@@ -129,7 +129,10 @@ BR2_PACKAGE_HOST_SWIG=y
 BR2_PACKAGE_HOST_RKDEVELOPTOOL=y
 BR2_PACKAGE_YQ=y
 BR2_PACKAGE_DRM_INFO=y
-BR2_BOARD_GPIO_CONFIG_PIN_NAME=y
+# GPIO detection disabled — RGB20Pro has no factory-reset/gadget GPIO pins.
+# Note: the init script has a bug where gpioget runs with empty args if
+# PIN_NAME is selected with empty pin names, crashing init.
+# BR2_BOARD_GPIO_CONFIG_PIN_NAME is not set
 BR2_FACTORY_RESET_GPIO_PIN_NAME=""
 BR2_GADGET_MODE_GPIO_PIN_NAME=""
 BR2_PACKAGE_LRZSZ=y
