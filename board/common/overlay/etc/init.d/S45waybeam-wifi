@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# S45waybeam-wifi — Waybeam WiFi startup (STA + cooperative RX or AP)
+#
+
+DAEMON="/usr/bin/waybeam-wifi.sh"
+LOG="/var/log/waybeam-wifi.log"
+
+case "$1" in
+	start)
+		printf "Starting waybeam-wifi: "
+		# Background to avoid blocking boot; log to file for debugging
+		$DAEMON start >> "$LOG" 2>&1 &
+		echo "OK (backgrounded, see $LOG)"
+		;;
+	stop)
+		printf "Stopping waybeam-wifi: "
+		if $DAEMON stop; then
+			echo "OK"
+		else
+			echo "FAIL"
+		fi
+		;;
+	restart|reload)
+		"$0" stop
+		sleep 1
+		"$0" start
+		;;
+	status)
+		$DAEMON status
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart|status}"
+		exit 1
+esac
