@@ -17,6 +17,11 @@ endef
 LINUX_POST_RSYNC_HOOKS += CI_CLEANUP_SRC_HOOK
 endif
 
+# ---- Fix host-LLVM build with GCC 14 / binutils 2.44 ----
+# GCC 14 symbol visibility changes cause link errors in LLVM tools.
+# Building shared libLLVM and linking tools against it resolves this.
+HOST_LLVM_CONF_OPTS += -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_LINK_LLVM_DYLIB=ON
+
 # ---- Custom wireless-regdb: replace db.txt with waybeam's full regulatory database ----
 LINUX_DEPENDENCIES += wireless-regdb
 
