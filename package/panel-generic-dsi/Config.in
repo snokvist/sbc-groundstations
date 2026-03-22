@@ -1,0 +1,11 @@
+config BR2_PACKAGE_PANEL_GENERIC_DSI
+	bool "panel-generic-dsi"
+	depends on BR2_LINUX_KERNEL
+	help
+	  ROCKNIX generic MIPI DSI panel driver.
+	  Reads panel configuration (timing, init sequence) from
+	  device tree panel_description property.
+
+	  Used by the Powkiddy RGB20Pro 1024x768 display.
+
+	  https://github.com/ROCKNIX

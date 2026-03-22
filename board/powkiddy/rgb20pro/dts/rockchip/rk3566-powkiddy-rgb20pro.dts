@@ -592,32 +592,64 @@
 	status = "okay";
 
 	panel: panel@0 {
-		/*
-		 * The RGB20Pro uses a 1024x768 MIPI DSI panel (65x49mm).
-		 * ROCKNIX uses a custom "rocknix,generic-dsi" driver with the
-		 * init sequence embedded in a panel_description DT property.
-		 *
-		 * For the Radxa BSP kernel, options:
-		 * 1. Port the ROCKNIX generic-dsi driver (simplest, see
-		 *    panel-generic-dsi.c from github.com/stolen/overlay_server)
-		 * 2. Create a proper panel driver with the init sequence
-		 * 3. Check if the BSP kernel has a matching panel driver
-		 *
-		 * The panel mode: clock=51072kHz, 1024x768
-		 * DSI config: 4 lanes, RGB888, burst mode, LPM, no EOT
-		 */
-		compatible = "powkiddy,rgb20-pro-panel";
+		compatible = "rocknix,generic-dsi";
 		reg = <0>;
 		backlight = <&backlight>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&lcd_rst>;
 		reset-gpios = <&gpio4 RK_PA0 GPIO_ACTIVE_LOW>;
-		vcc-supply = <&vcc3v3_lcd0_n>;
+		vdd-supply = <&vcc3v3_lcd0_n>;
 		iovcc-supply = <&vcc3v3_lcd0_n>;
 
-		/* Physical size */
-		width-mm = <65>;
-		height-mm = <49>;
+		/*
+		 * Panel description for the generic-dsi driver.
+		 * 1024x768 @ ~60fps (default mode, clock=51072kHz).
+		 * G = global settings, M = display modes, I = init sequence.
+		 */
+		panel_description =
+			"G size=65,49 delays=200,150,36,36,20 format=rgb888 lanes=4 flags=0xe03",
+
+			"M clock=51072 horizontal=1024,20,4,20 vertical=768,15,3,11 default=1",
+			"M clock=51312 horizontal=1024,20,30,20 vertical=768,15,145,11",
+			"M clock=51072 horizontal=1024,20,56,20 vertical=768,15,118,11",
+			"M clock=52162 horizontal=1024,20,54,20 vertical=768,15,139,11",
+			"M clock=51152 horizontal=1024,20,48,20 vertical=768,15,6,11",
+			"M clock=62932 horizontal=1024,20,29,20 vertical=768,15,170,11",
+			"M clock=59842 horizontal=1024,20,20,20 vertical=768,15,127,11",
+			"M clock=51312 horizontal=1024,20,5,20 vertical=768,15,6,11",
+			"M clock=54600 horizontal=1024,20,48,20 vertical=768,15,23,11",
+			"M clock=65390 horizontal=1024,20,15,20 vertical=768,15,9,11",
+			"M clock=77040 horizontal=1024,20,6,20 vertical=768,15,6,11",
+			"M clock=102720 horizontal=1024,20,6,20 vertical=768,15,6,11",
+
+			"I seq=df9168f9",
+			"I seq=de00",
+			"I seq=b2007e",
+			"I seq=b3007e",
+			"I seq=c1001000000000",
+			"I seq=bb02240761194444",
+			"I seq=be1af2",
+			"I seq=c310175a175a0505050515153105df",
+			"I seq=c4118000df090614",
+			"I seq=ce0003030303030303030303030303030303030303030f03",
+			"I seq=cf00014001ca01ca01ca",
+			"I seq=d0001f1f1f1f1f1f1f1f1f1f03010507090b1e151f1f151f",
+			"I seq=d1001f1f1f1f1f1f1f1f1f1f02000406080a1e151f1f151f",
+			"I seq=d2001f1f1f1f1f1f1f1f1f1f00020a0806041f151f1f151e",
+			"I seq=d3001f1f1f1f1f1f1f1f1f1f01030b0907051f151f1f151e",
+			"I seq=d43000000400060000000000030300110001c0040101118001c00501010000000400061802e3",
+			"I seq=d56873000808000300",
+			"I seq=b700d80000d800",
+			"I seq=c87f695a4e4a3b402a4443446351594c483a280f7f695a4e4a3b402a4443446351594c483a280f",
+			"I seq=de02",
+			"I seq=bb005b5c41",
+			"I seq=b5005a0a",
+			"I seq=c622",
+			"I seq=d712",
+			"I seq=de00",
+			"I seq=3500",
+			"I seq=11 wait=250",
+			"I seq=29 wait=250";
 
 		port {
 			mipi_in_panel: endpoint {

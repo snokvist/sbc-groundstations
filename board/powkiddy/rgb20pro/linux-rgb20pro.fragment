@@ -2,10 +2,10 @@
 # Extends the waybeam base with RGB20Pro-specific hardware support
 
 # ---- Display panel ----
-# The RGB20Pro has a 3.2" 1024x768 MIPI DSI panel.
-# ROCKNIX uses a custom "generic-dsi" panel driver for this device.
-# We need to either port that driver or use an existing BSP panel driver.
-# Enable candidates - one of these should match or a custom patch is needed:
+# The generic-dsi panel driver is built as an out-of-tree module
+# (package/panel-generic-dsi). These in-tree panel drivers are kept
+# as fallbacks in case the generic-dsi driver doesn't work with
+# a particular BSP kernel version.
 CONFIG_DRM_PANEL_NEWVISION_NV3051D=m
 CONFIG_DRM_PANEL_SITRONIX_ST7703=m
 
@@ -14,12 +14,13 @@ CONFIG_DRM_DW_MIPI_DSI=y
 CONFIG_PHY_ROCKCHIP_INNO_DSIDPHY=y
 
 # ---- Joystick / Gamepad ----
-# The RGB20Pro uses a single SARADC channel with analog mux for joysticks.
-# ROCKNIX has a custom "rocknix-singleadc-joypad" driver.
-# Either port that driver or use the mainline adc-joystick with adaptation.
+# The rocknix-singleadc-joypad driver is built as an out-of-tree module
+# (package/rocknix-joypad). These kernel configs enable its dependencies.
 CONFIG_INPUT_JOYSTICK=y
-CONFIG_JOYSTICK_ADC=m
 CONFIG_INPUT_FF_MEMLESS=m
+CONFIG_INPUT_POLLDEV=y
+CONFIG_IIO=y
+CONFIG_ROCKCHIP_SARADC=y
 
 # ---- GPIO keys (volume buttons) ----
 CONFIG_KEYBOARD_GPIO=y

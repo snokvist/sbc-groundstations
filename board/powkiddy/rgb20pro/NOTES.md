@@ -15,52 +15,38 @@
 | Rumble | PWM5-based motor |
 | LEDs | Green (PWM6), Red (PWM7) |
 
-## Known Issues / TODOs
+## Ported Drivers
 
-### 1. Panel Driver (CRITICAL)
+### Panel Driver (`package/panel-generic-dsi`)
+Ported from ROCKNIX. Reads panel config (timing modes, DSI init sequence)
+from the `panel_description` device tree property. The DTS contains the
+complete init sequence and 12 display modes (default: 60fps at 51072kHz).
 
-The RGB20Pro's 1024x768 display uses an unidentified MIPI DSI controller.
-ROCKNIX handles this with a custom `rocknix,generic-dsi` panel driver that
-reads init sequences from the device tree.
+### Joystick Driver (`package/rocknix-joypad`)
+Ported from ROCKNIX (Miyoo serial code removed, only SARADC+mux kept).
+Single SARADC channel (ch3) with GPIO analog mux for 4 axes (LX/LY/RX/RY).
+Includes radial deadzone, axis inversion, and PWM rumble support.
 
-**Options to get the display working:**
+## Remaining TODOs
 
-a) **Port the ROCKNIX generic-dsi driver** - Source at
-   `github.com/stolen/overlay_server` (commit 04e5e55). Add as a kernel
-   patch in `board/powkiddy/rgb20pro/linux-patches/`. This is the most
-   proven approach since ROCKNIX ships this to real users.
-
-b) **Create a proper panel driver** - Write a standard DRM panel driver
-   (`panel-powkiddy-rgb20pro.c`) with the init sequence hardcoded.
-
-c) **Extract from stock firmware** - Dump the panel init sequence via
-   UART from the stock Powkiddy firmware if the ROCKNIX sequences don't
-   work with the BSP kernel.
-
-### 2. Joystick Driver
-
-The analog sticks use a single SARADC channel (ch3) with GPIO-based
-analog multiplexer. ROCKNIX uses a custom `rocknix-singleadc-joypad`
-driver from `github.com/ROCKNIX/rocknix-joypad`.
-
-**Options:**
-- Port `rocknix-joypad` as an out-of-tree kernel module package
-- Use the mainline `adc-joystick` driver if the BSP SARADC supports
-  multiple channels natively (unlikely for muxed setup)
-- Write a userspace daemon using `/dev/iio` to read the muxed ADC
-
-### 3. U-Boot
-
+### 1. U-Boot
 Currently using the Radxa Zero 3 U-Boot defconfig. This should work for
 basic boot but won't have RGB20Pro-specific detection (SARADC value 245).
 For proper auto-detection, the Anbernic rgxx3-rk3566 U-Boot defconfig
 with the RGB20Pro patch from ROCKNIX would be needed.
 
-### 4. WiFi Variant Detection
-
+### 2. WiFi Variant Detection
 Most units have RTL8821CS but some early units shipped with RTL8723DS.
 Both drivers are enabled in the kernel fragment. ROCKNIX detects the
 variant by checking USB ID `024C:D723`.
+
+### 3. Kernel Compatibility
+The joypad driver uses `input-polldev.h` (legacy polled input API).
+This was removed in mainline Linux 5.18+. If the BSP kernel is newer,
+the driver needs updating to use `input_setup_polling()` API instead.
+
+The panel driver uses `of_gpio_legacy.h` for kernel 6.3+. Check
+compatibility with the actual BSP kernel version.
 
 ## Build
 
