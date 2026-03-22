@@ -33,7 +33,7 @@ WIFI_RECONNECT_TIMEOUT=60
 AP_SSID="WaybeamGS"
 AP_PSK="waybeamgs"
 AP_CHANNEL=149
-AP_COUNTRY="SE"
+AP_COUNTRY="US"
 AP_IP="192.168.4.1"
 AP_NETMASK="255.255.255.0"
 AP_DHCP_START="192.168.4.10"
@@ -250,6 +250,7 @@ sta_connect() {
 
     # Bring interface up
     ip link set "$_iface" up
+    iw dev "$_iface" set power_save off 2>/dev/null || true
 
     # Try to connect with retries
     _attempt=0
@@ -687,6 +688,9 @@ ap_start() {
         _vht="0"
     fi
 
+    # Disable power save (latency-sensitive)
+    iw dev "$_iface" set power_save off 2>/dev/null || true
+
     # Generate hostapd config
     cat > "$HOSTAPD_CONF" <<EOF
 interface=$_iface
@@ -702,6 +706,13 @@ wpa_passphrase=$AP_PSK
 wpa_key_mgmt=WPA-PSK
 rsn_pairwise=CCMP
 wmm_enabled=1
+
+# FPV link stability
+disassoc_low_ack=0
+ap_max_inactivity=86400
+max_num_sta=4
+uapsd_advertisement_enabled=0
+noscan=1
 EOF
 
     # Start hostapd
@@ -739,8 +750,9 @@ ap_stop() {
     killall hostapd 2>/dev/null || true
 
     # Kill only the WiFi udhcpd (not the usb0 one)
-    _pid=$(pgrep -f "udhcpd.*$UDHCPD_CONF" 2>/dev/null) || true
-    [ -n "$_pid" ] && kill $_pid 2>/dev/null || true
+    _pids=$(ps w 2>/dev/null | grep "udhcpd" | grep -v grep | \
+        grep -- "$UDHCPD_CONF" | awk '{print $1}')
+    [ -n "$_pids" ] && kill $_pids 2>/dev/null || true
 
     for _if in $(discover_wifi_ifaces); do
         ip addr flush dev "$_if" 2>/dev/null || true
