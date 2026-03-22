@@ -304,6 +304,7 @@
 			sample_res = <10>;
 			otg5v_suspend_enable = <1>;
 			gate_function_disable = <0>;
+			otg_switch-supply = <&otg_switch>;
 		};
 	};
 };
