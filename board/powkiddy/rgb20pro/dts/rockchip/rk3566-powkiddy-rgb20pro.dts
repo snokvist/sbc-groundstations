@@ -204,6 +204,21 @@
 		sound-name-prefix = "Speaker Amp";
 	};
 
+	/* ---- RK817 sound card (speaker + headphones) ---- */
+	rk817-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "Analog";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,mclk-fs = <256>;
+
+		simple-audio-card,codec {
+			sound-dai = <&rk817_codec>;
+		};
+		simple-audio-card,cpu {
+			sound-dai = <&i2s1_8ch>;
+		};
+	};
+
 	/* ---- WiFi power sequence ---- */
 	sdio_pwrseq: sdio-pwrseq {
 		compatible = "mmc-pwrseq-simple";
@@ -323,6 +338,17 @@
 };
 
 &pwm7 {
+	status = "okay";
+};
+
+/* ---- Enable RK817 codec (disabled in Radxa DTSI) ---- */
+&rk817_codec {
+	status = "okay";
+	spk-ctl-gpios = <&gpio0 RK_PA6 GPIO_ACTIVE_HIGH>;
+};
+
+/* ---- Enable I2S1 for RK817 codec ---- */
+&i2s1_8ch {
 	status = "okay";
 };
 
