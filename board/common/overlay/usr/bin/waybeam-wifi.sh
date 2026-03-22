@@ -29,6 +29,7 @@ COOP_RX_MONITOR_INTERVAL=5
 WIFI_IFACE_WAIT=15
 WIFI_ASSOC_TIMEOUT=15
 WIFI_SCAN_RETRIES=3
+WIFI_RECONNECT_TIMEOUT=60
 AP_SSID="WaybeamGS"
 AP_PSK="waybeamgs"
 AP_CHANNEL=149
@@ -186,7 +187,13 @@ generate_wpa_conf() {
     (
         umask 077
         _prio=100
-        echo "ap_scan=1" > "$WPA_CONF"
+        cat > "$WPA_CONF" <<'HEADER'
+ap_scan=1
+
+# Sticky connection: disable roaming, never let wpa_supplicant give up
+bgscan=""
+autoscan=periodic:3
+HEADER
 
         echo "$WIFI_NETWORKS" | while IFS= read -r _line; do
             _line=$(echo "$_line" | xargs)
@@ -517,8 +524,14 @@ coop_rx_monitor_start() {
     (
         trap 'exit 0' TERM INT
         _sta_fail_count=0
+        _was_connected=1
         while true; do
-            sleep "$COOP_RX_MONITOR_INTERVAL"
+            # Aggressive polling when disconnected (2s), normal when connected
+            if [ "$_sta_fail_count" -gt 0 ]; then
+                sleep 2
+            else
+                sleep "$COOP_RX_MONITOR_INTERVAL"
+            fi
 
             # --- STA watchdog ---
             _primary=""
@@ -526,9 +539,10 @@ coop_rx_monitor_start() {
             if [ -n "$_primary" ] && [ "$WIFI_MODE" = "sta" ]; then
                 # Check if interface still exists
                 if [ ! -d "/sys/class/net/$_primary" ]; then
-                    log_warn "Monitor: primary interface $_primary disappeared"
                     _sta_fail_count=$((_sta_fail_count + 1))
-                    if [ "$_sta_fail_count" -ge 6 ]; then
+                    [ "$_sta_fail_count" -eq 1 ] && log_warn "Monitor: primary interface $_primary disappeared"
+                    # Try every 10s (5 * 2s) to find a new interface
+                    if [ "$((_sta_fail_count % 5))" -eq 0 ]; then
                         log_info "Monitor: attempting STA recovery on new interface..."
                         sta_connect 2>/dev/null && _sta_fail_count=0
                     fi
@@ -541,24 +555,52 @@ coop_rx_monitor_start() {
                     _kill_udhcpc "$_primary"
                     sta_connect 2>/dev/null || true
                     _sta_fail_count=0
+                    _was_connected=0
                     continue
                 fi
 
                 # Check if still associated
                 if ! iw dev "$_primary" link 2>/dev/null | grep -q "Connected"; then
                     _sta_fail_count=$((_sta_fail_count + 1))
-                    if [ "$_sta_fail_count" -ge 6 ]; then
-                        # 30s without connection (6 * 5s) — restart wpa_supplicant
-                        log_warn "Monitor: no association for 30s, restarting wpa_supplicant..."
+                    if [ "$_sta_fail_count" -eq 1 ]; then
+                        log_warn "Monitor: lost association on $_primary, waiting for reconnect..."
+                        _was_connected=0
+                    fi
+                    # wpa_supplicant handles reconnect internally — give it
+                    # generous time (60s) before we restart it entirely.
+                    # Log progress every 10s.
+                    if [ "$((_sta_fail_count % 5))" -eq 0 ]; then
+                        log_info "Monitor: still disconnected (${_sta_fail_count}x2s elapsed)..."
+                    fi
+                    _max_polls=$((WIFI_RECONNECT_TIMEOUT / 2))
+                    if [ "$_sta_fail_count" -ge "$_max_polls" ]; then
+                        # Timeout exceeded — restart wpa_supplicant
+                        log_warn "Monitor: no association for ${WIFI_RECONNECT_TIMEOUT}s, restarting wpa_supplicant..."
                         _kill_wpa "$_primary"
                         _kill_udhcpc "$_primary"
                         sta_connect 2>/dev/null || true
                         _sta_fail_count=0
+                        _was_connected=0
                     fi
                     continue
                 fi
 
-                # Connected — reset failure counter
+                # Connected — handle reconnection recovery
+                if [ "$_was_connected" -eq 0 ]; then
+                    _ssid=$(iw dev "$_primary" link 2>/dev/null | grep "SSID:" | awk '{print $2}')
+                    log_info "Monitor: reconnected to ${_ssid:-unknown}"
+                    # Re-acquire DHCP after reconnect
+                    _kill_udhcpc "$_primary"
+                    _udhcpc_args="-i $_primary -t 5 -b -R"
+                    [ -f "$WIFI_UDHCPC_SCRIPT" ] && _udhcpc_args="$_udhcpc_args -s $WIFI_UDHCPC_SCRIPT"
+                    udhcpc $_udhcpc_args 2>/dev/null || true
+                    # Re-setup cooperative RX
+                    if coop_rx_capable 2>/dev/null && ! coop_rx_active 2>/dev/null; then
+                        log_info "Monitor: re-establishing cooperative RX..."
+                        coop_rx_start 2>/dev/null || true
+                    fi
+                    _was_connected=1
+                fi
                 _sta_fail_count=0
             fi
 
