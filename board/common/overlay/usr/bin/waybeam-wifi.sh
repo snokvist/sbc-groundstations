@@ -712,7 +712,6 @@ disassoc_low_ack=0
 ap_max_inactivity=86400
 max_num_sta=4
 uapsd_advertisement_enabled=0
-noscan=1
 EOF
 
     # Start hostapd
