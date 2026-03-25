@@ -1,28 +1,30 @@
 ###############################################################################
 #
-# waybeam-hub (ground station — pre-built aarch64 binary)
+# waybeam-hub (ground station — built from source)
 #
-# Binary published by waybeam-hub CI to snokvist/waybeam-releases on every
-# push to main.  Tag format: waybeam-hub-ground-<sha8>
-# Update WAYBEAM_HUB_VERSION to the short SHA of the desired waybeam-hub
-# commit when bumping.
+# Locally built via WAYBEAM_HUB_OVERRIDE_SRCDIR (set in waybeam-local.mk).
+# The github SITE is a fallback for CI where the override isn't set.
 #
 ###############################################################################
 
-WAYBEAM_HUB_VERSION = cfbc9003
-WAYBEAM_HUB_SITE = https://github.com/snokvist/waybeam-releases/releases/download/waybeam-hub-ground-$(WAYBEAM_HUB_VERSION)
-WAYBEAM_HUB_SITE_METHOD = wget
-WAYBEAM_HUB_SOURCE = waybeam_hub_ground.tar.gz
-WAYBEAM_HUB_STRIP_COMPONENTS = 0
-WAYBEAM_HUB_INSTALL_STAGING = NO
-WAYBEAM_HUB_INSTALL_TARGET = YES
+WAYBEAM_HUB_VERSION = 49295aadca4ce98d7e93c4ec28afabb2e7114c4d
+WAYBEAM_HUB_SITE = $(call github,snokvist,waybeam-hub,$(WAYBEAM_HUB_VERSION))
+WAYBEAM_HUB_DEPENDENCIES = rockchip-mpp gstreamer1 gst1-plugins-base \
+	libdrm eudev libgpiod cjson libcurl libpng librga
 
+ifeq ($(BR2_PACKAGE_MESA3D),y)
+WAYBEAM_HUB_DEPENDENCIES += mesa3d
+endif
+
+# waybeam-hub Makefile uses pkg-config to discover flags — do not override CFLAGS/LDFLAGS
 define WAYBEAM_HUB_BUILD_CMDS
-	@true # pre-built binary
+	$(TARGET_MAKE_ENV) $(MAKE) -C $(@D) ground \
+		CC="$(TARGET_CC)" \
+		PKG_CONFIG="$(PKG_CONFIG_HOST_BINARY)"
 endef
 
 define WAYBEAM_HUB_INSTALL_TARGET_CMDS
-	$(INSTALL) -D -m 0755 $(@D)/waybeam_hub \
+	$(INSTALL) -D -m 0755 $(@D)/build/ground/waybeam_hub \
 		$(TARGET_DIR)/usr/bin/waybeam_hub
 
 	$(INSTALL) -D -m 0644 $(WAYBEAM_HUB_PKGDIR)/files/waybeam_ground.conf \
