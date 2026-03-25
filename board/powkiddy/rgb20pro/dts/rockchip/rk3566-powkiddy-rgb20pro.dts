@@ -5,8 +5,8 @@
 // Strategy: inherit the working Radxa Zero 3 DTSI (same RK3566 platform,
 // same PMIC, same clock tree) and layer RGB20Pro-specific hardware on top.
 //
-// DSI panel: DISABLED — requires panel-generic-dsi built into kernel
-// (not as module). See memory/rgb20pro_dsi_findings.md.
+// DSI panel: DISABLED — BSP VOP/DSI bind crashes even without panel node.
+// Need to study working darkOS DTB for correct DSI setup on this BSP.
 
 /dts-v1/;
 
@@ -399,7 +399,7 @@
 /* BSP dsi0 node lacks port@1 — driver needs it for drm_of_find_panel_or_bridge().
    Panel driver (panel-generic-dsi) is injected into kernel as built-in via local.mk. */
 &dsi0 {
-	status = "disabled"; /* crashes boot — see memory/rgb20pro_dsi_findings.md */
+	status = "disabled";
 
 	ports {
 		port@1 {
@@ -471,15 +471,21 @@
 	};
 };
 
-/* ---- VOP: route DSI0 through VP1 ---- */
-//&dsi0_in_vp1 {
-//	status = "okay";
-//};
+/* ---- VOP: route DSI0 through VP1 (VP0 stays on HDMI) ---- */
+/* Disabled until we understand how darkOS BSP enables DSI without crashing.
+&dsi0_in_vp0 {
+	status = "disabled";
+};
 
-//&route_dsi0 {
-//	status = "okay";
-//	connect = <&vp1_out_dsi0>;
-//};
+&dsi0_in_vp1 {
+	status = "okay";
+};
+
+&route_dsi0 {
+	status = "okay";
+	connect = <&vp1_out_dsi0>;
+};
+*/
 
 /* ---- Pin control ---- */
 &pinctrl {

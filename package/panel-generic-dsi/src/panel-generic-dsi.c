@@ -417,7 +417,8 @@ static int generic_panel_unprepare(struct drm_panel *panel)
 	if (ctx->enable_gpio) { gpiod_set_value_cansleep(ctx->enable_gpio, 0); }
 	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 
-	regulator_disable(ctx->iovcc);
+	if (ctx->iovcc)
+		regulator_disable(ctx->iovcc);
 	regulator_disable(ctx->vdd);
 
 	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
@@ -443,10 +444,12 @@ static int generic_panel_prepare(struct drm_panel *panel)
 		return ret;
 	}
 
-	ret = regulator_enable(ctx->iovcc);
-	if (ret < 0) {
-		dev_err(ctx->dev, "Failed to enable iovcc supply: %d\n", ret);
-		goto disable_vdd;
+	if (ctx->iovcc) {
+		ret = regulator_enable(ctx->iovcc);
+		if (ret < 0) {
+			dev_err(ctx->dev, "Failed to enable iovcc supply: %d\n", ret);
+			goto disable_vdd;
+		}
 	}
 
 	if (ctx->enable_gpio) { gpiod_set_value_cansleep(ctx->enable_gpio, 1); }
@@ -483,7 +486,8 @@ static int generic_panel_prepare(struct drm_panel *panel)
 	return 0;
 
 disable_iovcc:
-	regulator_disable(ctx->iovcc);
+	if (ctx->iovcc)
+		regulator_disable(ctx->iovcc);
 disable_vdd:
 	regulator_disable(ctx->vdd);
 	return ret;
