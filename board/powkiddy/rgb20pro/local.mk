@@ -48,20 +48,7 @@ define LINUX_RK_PATCHES_AFTER_RSYNC
 endef
 LINUX_POST_RSYNC_HOOKS += LINUX_RK_PATCHES_AFTER_RSYNC
 
-# ---- Inject panel-generic-dsi driver into kernel tree as built-in ----
-# BSP DRM component framework requires panel drivers to be built-in (=y).
-# A module loads too late → -EPROBE_DEFER → entire DRM bind fails → no HDMI.
-define LINUX_INJECT_PANEL_GENERIC_DSI
-	@echo "Post-patch: injecting panel-generic-dsi into kernel tree (built-in)"
-	$(INSTALL) -m 0644 \
-		$(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/package/panel-generic-dsi/src/panel-generic-dsi.c \
-		$(@D)/drivers/gpu/drm/panel/panel-generic-dsi.c
-	@if ! grep -q 'panel-generic-dsi' $(@D)/drivers/gpu/drm/panel/Makefile; then \
-		echo 'obj-y += panel-generic-dsi.o' >> $(@D)/drivers/gpu/drm/panel/Makefile; \
-		echo "  Added panel-generic-dsi.o to panel Makefile"; \
-	fi
-endef
-LINUX_POST_PATCH_HOOKS += LINUX_INJECT_PANEL_GENERIC_DSI
+# NOTE: panel-generic-dsi injection removed — using BSP built-in simple-panel-dsi
 
 # ---- Copy regulatory.db into kernel build tree for built-in firmware ----
 define LINUX_REGDB_COPY_FOR_BUILTIN_FW

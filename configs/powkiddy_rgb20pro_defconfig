@@ -233,7 +233,7 @@ BR2_PACKAGE_WFB_BINS_ONLY=y
 ##
 
 ## RGB20Pro-specific drivers
-BR2_PACKAGE_PANEL_GENERIC_DSI=y
+# panel-generic-dsi removed — using BSP built-in simple-panel-dsi
 BR2_PACKAGE_ROCKNIX_JOYPAD=y
 ##
 
