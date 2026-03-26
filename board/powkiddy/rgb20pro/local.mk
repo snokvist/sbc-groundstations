@@ -36,20 +36,23 @@ define WIRELESS_REGDB_USE_CUSTOM_DB_AND_REGEN_DB
 endef
 WIRELESS_REGDB_POST_PATCH_HOOKS += WIRELESS_REGDB_USE_CUSTOM_DB_AND_REGEN_DB
 
-# ---- Apply kernel patches after source rsync ----
-define LINUX_RK_PATCHES_AFTER_RSYNC
-	@echo "Post-rsync: apply kernel patches (shared)"
+# ---- Apply kernel patches ----
+# POST_RSYNC_HOOKS fires for OVERRIDE_SRCDIR, POST_PATCH_HOOKS for tarballs.
+# Register both so patches apply regardless of kernel source method.
+define LINUX_RK_PATCHES_APPLY
+	@echo "Post-patch: apply kernel patches (shared)"
 	$(APPLY_PATCHES) $(@D) \
 		$(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/board/radxa/zero3/linux-patches \
 		*.patch
 	@if ls $(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/board/powkiddy/rgb20pro/linux-patches/*.patch 1>/dev/null 2>&1; then \
-		echo "Post-rsync: apply RGB20Pro-specific kernel patches"; \
+		echo "Post-patch: apply RGB20Pro-specific kernel patches"; \
 		$(APPLY_PATCHES) $(@D) \
 			$(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/board/powkiddy/rgb20pro/linux-patches \
 			*.patch; \
 	fi
 endef
-LINUX_POST_RSYNC_HOOKS += LINUX_RK_PATCHES_AFTER_RSYNC
+LINUX_POST_RSYNC_HOOKS += LINUX_RK_PATCHES_APPLY
+LINUX_POST_PATCH_HOOKS += LINUX_RK_PATCHES_APPLY
 
 # NOTE: panel-generic-dsi injection removed — using BSP built-in simple-panel-dsi
 
