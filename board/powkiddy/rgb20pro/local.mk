@@ -4,6 +4,9 @@
 # ---- waybeam-hub: build from local source ----
 WAYBEAM_HUB_OVERRIDE_SRCDIR = $(realpath $(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/../waybeam-hub)
 
+# ---- Fix host-LLVM build with GCC 14 / binutils 2.44 ----
+HOST_LLVM_CONF_OPTS += -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_LINK_LLVM_DYLIB=ON
+
 # ---- CI cleanup (same as board/common/local.mk) ----
 ifeq ($(CI),true)
 define CI_CLEANUP_HOOK
