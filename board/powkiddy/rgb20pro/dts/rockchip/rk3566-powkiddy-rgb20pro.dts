@@ -402,7 +402,7 @@
    hardware switches at boot based on HDMI detect). */
 &dsi0 {
 	status = "okay";
-	rockchip,lane-rate = <1000>;
+	/* rockchip,lane-rate omitted — auto-calculate like darkOS */
 
 	panel@0 {
 		compatible = "powkiddy,rgb20pro-panel", "simple-panel-dsi";
@@ -420,20 +420,22 @@
 		disable-delay-ms = <50>;
 		unprepare-delay-ms = <36>;
 
+		bpc = <8>;
+		bus-format = <0x100a>;	/* MEDIA_BUS_FMT_RGB888_1X24 */
 		width-mm = <65>;
 		height-mm = <49>;
 
 		dsi,flags = <(MIPI_DSI_MODE_VIDEO |
 			      MIPI_DSI_MODE_VIDEO_BURST |
-			      MIPI_DSI_MODE_NO_EOT_PACKET |
-			      MIPI_DSI_CLOCK_NON_CONTINUOUS |
-			      MIPI_DSI_MODE_LPM)>;
+			      MIPI_DSI_MODE_LPM |
+			      MIPI_DSI_MODE_NO_EOT_PACKET)>;
 		dsi,format = <MIPI_DSI_FMT_RGB888>;
 		dsi,lanes = <4>;
 
+		/* Init sequence from darkOS — all commands as DCS_LONG_WRITE (0x39) */
 		panel-init-sequence = [
 			39 00 04 df 91 68 f9
-			15 00 02 de 00
+			39 00 02 de 00
 			39 00 03 b2 00 7e
 			39 00 03 b3 00 7e
 			39 00 07 c1 00 10 00 00 00 00
@@ -451,20 +453,21 @@
 			39 00 09 d5 68 73 00 08 08 00 03 00
 			39 00 07 b7 00 d8 00 00 d8 00
 			39 00 27 c8 7f 69 5a 4e 4a 3b 40 2a 44 43 44 63 51 59 4c 48 3a 28 0f 7f 69 5a 4e 4a 3b 40 2a 44 43 44 63 51 59 4c 48 3a 28 0f
-			15 00 02 de 02
+			39 00 02 de 02
 			39 00 05 bb 00 5b 5c 41
 			39 00 04 b5 00 5a 0a
-			15 00 02 c6 22
-			15 00 02 d7 12
-			15 00 02 de 00
-			15 00 02 35 00
+			39 00 02 c6 22
+			39 00 02 d7 12
+			39 00 02 de 00
+			39 00 02 35 00
 			05 fa 01 11
 			05 fa 01 29
 		];
 
+		/* Exit sequence delays from darkOS: 20ms + 10ms */
 		panel-exit-sequence = [
-			05 dc 01 28
-			05 78 01 10
+			05 14 01 28
+			05 0a 01 10
 		];
 
 		display-timings {
@@ -513,17 +516,18 @@
 	};
 };
 
-/* ---- VOP: DSI0 on VP0 (shared with HDMI — HW switches at boot) ---- */
+/* ---- VOP: DSI0 on VP1 (VP0 stays on HDMI) ---- */
 &dsi0_in_vp0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &dsi0_in_vp1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &route_dsi0 {
 	status = "okay";
+	connect = <&vp1_out_dsi0>;
 };
 
 /* ---- Pin control ---- */
