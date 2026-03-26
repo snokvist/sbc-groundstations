@@ -1,6 +1,9 @@
 # Powkiddy RGB20Pro local.mk
 # Based on waybeam-local.mk with RGB20Pro-specific adaptations
 
+# ---- waybeam-hub: build from local source ----
+WAYBEAM_HUB_OVERRIDE_SRCDIR = $(realpath $(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/../waybeam-hub)
+
 # ---- CI cleanup (same as board/common/local.mk) ----
 ifeq ($(CI),true)
 define CI_CLEANUP_HOOK
