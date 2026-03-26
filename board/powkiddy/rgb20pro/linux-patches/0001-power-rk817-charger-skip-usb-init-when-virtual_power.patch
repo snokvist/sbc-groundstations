@@ -1,0 +1,16 @@
+--- a/drivers/power/supply/rk817_charger.c
++++ b/drivers/power/supply/rk817_charger.c
+@@ -1632,7 +1632,12 @@
+ 		return ret;
+ 	}
+
+-	ret = rk817_charge_usb_init(charge);
++	if (charge->pdata->virtual_power) {
++		dev_info(charge->dev, "virtual_power=1: skip USB BC init\n");
++		ret = 0;
++	} else {
++		ret = rk817_charge_usb_init(charge);
++	}
+ 	if (ret) {
+ 		dev_err(charge->dev, "init usb failed!\n");
+ 		return ret;

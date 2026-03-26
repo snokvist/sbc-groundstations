@@ -350,7 +350,10 @@
 			min_input_voltage = <4500>;
 			chrg_finish_cur = <300>;
 			chrg_term_mode = <0>;
-			virtual_power = <0>;
+			/* virtual_power=1: bypass USB BC detect (requires
+			   CONFIG_DWC_OTG_310 which this kernel doesn't have).
+			   Charger will always report power present. */
+			virtual_power = <1>;
 			power_dc2otg = <0>;
 			sample_res = <10>;
 			otg5v_suspend_enable = <1>;
