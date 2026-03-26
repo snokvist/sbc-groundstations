@@ -1,0 +1,70 @@
+# RGB20Pro kernel configuration fragment
+# Extends the waybeam base with RGB20Pro-specific hardware support
+
+# ---- Display panel ----
+# The generic-dsi panel driver is built as an out-of-tree module
+# (package/panel-generic-dsi). These in-tree panel drivers are kept
+# as fallbacks in case the generic-dsi driver doesn't work with
+# a particular BSP kernel version.
+CONFIG_DRM_PANEL_NEWVISION_NV3051D=m
+CONFIG_DRM_PANEL_SITRONIX_ST7703=m
+
+# ---- MIPI DSI ----
+CONFIG_DRM_DW_MIPI_DSI=y
+CONFIG_PHY_ROCKCHIP_INNO_DSIDPHY=y
+
+# ---- Joystick / Gamepad ----
+# The rocknix-singleadc-joypad driver is built as an out-of-tree module
+# (package/rocknix-joypad). These kernel configs enable its dependencies.
+CONFIG_INPUT_JOYSTICK=y
+CONFIG_INPUT_FF_MEMLESS=m
+CONFIG_IIO=y
+CONFIG_ROCKCHIP_SARADC=y
+
+# ---- GPIO keys (volume buttons) ----
+CONFIG_KEYBOARD_GPIO=y
+CONFIG_KEYBOARD_GPIO_POLLED=m
+
+# ---- Battery / Power management (RK817 PMIC) ----
+CONFIG_MFD_RK8XX_I2C=y
+CONFIG_REGULATOR_RK808=y
+CONFIG_CHARGER_RK817=m
+CONFIG_BATTERY_RK817=m
+CONFIG_RTC_DRV_RK808=y
+CONFIG_POWER_SUPPLY=y
+
+# ---- WiFi: RTL8821CS (SDIO) ----
+# Primary WiFi chip; some early units have RTL8723DS instead
+CONFIG_RTL8821CS=m
+CONFIG_RTL8723DS=m
+CONFIG_BT_HCIUART_RTL=y
+CONFIG_BT_RTL=m
+
+# ---- LEDs (PWM-driven green/red indicators) ----
+CONFIG_LEDS_PWM=m
+CONFIG_LEDS_GPIO=m
+CONFIG_LEDS_TRIGGER_DEFAULT_ON=m
+
+# ---- PWM ----
+CONFIG_PWM=y
+CONFIG_PWM_ROCKCHIP=y
+CONFIG_BACKLIGHT_PWM=y
+
+# ---- USB OTG ----
+CONFIG_USB_DWC3=y
+CONFIG_USB_DWC3_OF_SIMPLE=y
+CONFIG_PHY_ROCKCHIP_INNO_USB2=y
+
+# ---- Audio (RK817 codec + headphone jack + speaker amp) ----
+CONFIG_SND_SOC_RK817=m
+CONFIG_SND_SOC_ROCKCHIP=y
+CONFIG_SND_SOC_ROCKCHIP_I2S_TDM=y
+CONFIG_SND_SIMPLE_CARD=m
+
+# ---- HDMI output ----
+CONFIG_DRM_DW_HDMI=y
+CONFIG_DRM_ROCKCHIP=y
+CONFIG_ROCKCHIP_VOP2=y
+
+# ---- Rumble motor (PWM5) ----
+CONFIG_INPUT_MISC=y

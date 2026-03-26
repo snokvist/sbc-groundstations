@@ -1,0 +1,12 @@
+config BR2_PACKAGE_ROCKNIX_JOYPAD
+	bool "rocknix-joypad"
+	depends on BR2_LINUX_KERNEL
+	help
+	  ROCKNIX singleadc joypad driver for RK3566 handheld devices.
+	  Reads analog sticks via a single SARADC channel with GPIO-based
+	  analog multiplexer, and digital buttons via GPIO.
+	  Supports PWM-based rumble motor.
+
+	  Used by the Powkiddy RGB20Pro, RK2023, and similar devices.
+
+	  https://github.com/ROCKNIX/rocknix-joypad
