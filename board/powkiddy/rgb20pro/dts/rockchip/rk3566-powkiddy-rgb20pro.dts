@@ -223,10 +223,39 @@
 	/* ---- WiFi power sequence ---- */
 	sdio_pwrseq: sdio-pwrseq {
 		compatible = "mmc-pwrseq-simple";
+		clocks = <&rk817 1>;
+		clock-names = "ext_clock";
 		pinctrl-0 = <&wifi_enable_h>;
 		pinctrl-names = "default";
 		reset-gpios = <&gpio4 RK_PA2 GPIO_ACTIVE_LOW>;
 		post-power-on-delay-ms = <200>;
+	};
+
+	/* ---- WiFi platform driver (Rockchip rfkill-wlan) ---- */
+	wireless_wlan: wireless-wlan {
+		compatible = "wlan-platdata";
+		rockchip,grf = <&grf>;
+		wifi_chip_type = "ap6330";
+		pinctrl-names = "default";
+		pinctrl-0 = <&wifi_host_wake_irq>;
+		WIFI,host_wake_irq = <&gpio4 RK_PA1 GPIO_ACTIVE_HIGH>;
+		keep_wifi_power_on;
+		status = "okay";
+	};
+
+	/* ---- Bluetooth platform driver (Rockchip rfkill-bt) ---- */
+	wireless_bluetooth: wireless-bluetooth {
+		compatible = "bluetooth-platdata";
+		clocks = <&rk817 1>;
+		clock-names = "ext_clock";
+		uart_rts_gpios = <&gpio2 RK_PB5 GPIO_ACTIVE_LOW>;
+		pinctrl-names = "default", "rts_gpio";
+		pinctrl-0 = <&uart1m1_rtsn>;
+		pinctrl-1 = <&uart1_gpios>;
+		BT,reset_gpio    = <&gpio4 RK_PA3 GPIO_ACTIVE_HIGH>;
+		BT,wake_gpio     = <&gpio4 RK_PA4 GPIO_ACTIVE_HIGH>;
+		BT,wake_host_irq = <&gpio4 RK_PA5 GPIO_ACTIVE_HIGH>;
+		status = "okay";
 	};
 
 	/* ---- WiFi power regulator ---- */
@@ -272,6 +301,12 @@
 
 /* ---- Disable Radxa gpio-leds (conflicts with our pwm-leds) ---- */
 &gpio_leds {
+	status = "disabled";
+};
+
+/* ---- Disable Radxa fusb302 USB-C (RGB20Pro has no USB-C, and its
+   interrupt GPIO3_PC7 conflicts with sdmmc2m0 data pin for WiFi) ---- */
+&usbc0 {
 	status = "disabled";
 };
 
@@ -359,36 +394,30 @@
 	vref-supply = <&vcc_1v8>;
 };
 
-/* ---- WiFi (RTL8821CS over SDIO) ---- */
-&sdmmc1 {
+/* ---- WiFi (RTL8821CS over SDIO on sdmmc2) ---- */
+/* darkOS uses sdmmc2, not sdmmc1. sdmmc1 is a regular SD slot. */
+&sdmmc2 {
+	max-frequency = <100000000>;
+	supports-sdio;
 	bus-width = <4>;
+	disable-wp;
 	cap-sd-highspeed;
 	cap-sdio-irq;
 	keep-power-in-suspend;
 	mmc-pwrseq = <&sdio_pwrseq>;
 	non-removable;
-	no-mmc;
-	no-sd;
-	pinctrl-0 = <&sdmmc1_bus4 &sdmmc1_clk &sdmmc1_cmd>;
 	pinctrl-names = "default";
-	sd-uhs-sdr50;
-	vmmc-supply = <&vcc_wifi>;
-	vqmmc-supply = <&vcca1v8_pmu>;
+	pinctrl-0 = <&sdmmc2m0_bus4 &sdmmc2m0_cmd &sdmmc2m0_clk>;
+	sd-uhs-sdr104;
+	rockchip,default-sample-phase = <90>;
 	status = "okay";
 };
 
-/* ---- Bluetooth (RTL8821CS on UART1) ---- */
+/* ---- Bluetooth UART (RTL8821CS on UART1 mux m1) ---- */
 &uart1 {
 	status = "okay";
-	pinctrl-0 = <&uart1m0_xfer &uart1m0_ctsn &uart1m0_rtsn>;
 	pinctrl-names = "default";
-
-	bluetooth {
-		compatible = "realtek,rtl8821cs-bt", "realtek,rtl8723bs-bt";
-		device-wake-gpios = <&gpio4 RK_PA4 GPIO_ACTIVE_HIGH>;
-		enable-gpios = <&gpio4 RK_PA3 GPIO_ACTIVE_HIGH>;
-		host-wake-gpios = <&gpio4 RK_PA5 GPIO_ACTIVE_HIGH>;
-	};
+	pinctrl-0 = <&uart1m1_xfer &uart1m1_ctsn>;
 };
 
 /* ---- DSI PHY ---- */
@@ -561,6 +590,20 @@
 		wifi_pwr: wifi-pwr {
 			rockchip,pins =
 				<0 RK_PA0 0 &pcfg_pull_none>;
+		};
+	};
+
+	wireless-wlan {
+		wifi_host_wake_irq: wifi-host-wake-irq {
+			rockchip,pins =
+				<4 RK_PA1 0 &pcfg_pull_down>;
+		};
+	};
+
+	wireless-bluetooth {
+		uart1_gpios: uart1-gpios {
+			rockchip,pins =
+				<4 RK_PB6 0 &pcfg_pull_none>;
 		};
 	};
 };
