@@ -122,6 +122,17 @@ wait_for_wifi_ifaces() {
 
 # Select the primary interface
 select_primary_iface() {
+    if [ "$WIFI_PRIMARY_IFACE" = "usb_prefer" ]; then
+        # Prefer USB WiFi adapters (wlx*) over built-in (wlan*)
+        _all=$(discover_wifi_ifaces)
+        for _if in $_all; do
+            case "$_if" in wlx*) echo "$_if"; return 0 ;; esac
+        done
+        # No USB adapter found, fall back to first available
+        log_info "No USB WiFi adapter found, using built-in"
+        echo "$_all" | awk '{print $1}'
+        return 0
+    fi
     if [ "$WIFI_PRIMARY_IFACE" != "auto" ]; then
         if [ -d "/sys/class/net/$WIFI_PRIMARY_IFACE" ]; then
             echo "$WIFI_PRIMARY_IFACE"
