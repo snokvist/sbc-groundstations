@@ -1,0 +1,65 @@
+#!/bin/sh
+#
+# S44bluetooth — Attach RTL8723DS Bluetooth via HCI UART
+#
+# The RGB20Pro has an RTL8723DS combo WiFi/BT chip.
+# BT is on UART1 (/dev/ttyS1), managed by the Rockchip
+# bluetooth-platdata rfkill driver for power/reset GPIOs.
+# This script attaches the HCI UART layer.
+#
+
+DAEMON="rtk_hciattach"
+DEVICE="/dev/ttyS1"
+PIDFILE="/var/run/hciattach.pid"
+
+start() {
+    # Wait for BT rfkill driver to initialize
+    sleep 2
+
+    if [ ! -c "$DEVICE" ]; then
+        echo "BT: $DEVICE not found, skipping"
+        return 1
+    fi
+
+    # Load BT modules
+    modprobe bluetooth 2>/dev/null
+    modprobe hci_uart 2>/dev/null
+    modprobe btrtl 2>/dev/null
+
+    echo -n "Starting Bluetooth HCI: "
+
+    # Try rtk_hciattach first (Realtek-specific), then generic hciattach
+    if command -v rtk_hciattach >/dev/null 2>&1; then
+        start-stop-daemon -S -b -m -p $PIDFILE -x /usr/bin/rtk_hciattach \
+            -- -n -s 115200 $DEVICE rtk_h5
+    elif command -v hciattach >/dev/null 2>&1; then
+        start-stop-daemon -S -b -m -p $PIDFILE -x /usr/bin/hciattach \
+            -- -n -s 115200 $DEVICE rtk_h5
+    else
+        # Use bluetoothctl with btattach
+        if command -v btattach >/dev/null 2>&1; then
+            start-stop-daemon -S -b -m -p $PIDFILE -x /usr/bin/btattach \
+                -- -B $DEVICE -S 115200 -P h5
+        else
+            echo "SKIP (no hciattach/btattach)"
+            return 1
+        fi
+    fi
+    echo "OK"
+}
+
+stop() {
+    echo -n "Stopping Bluetooth HCI: "
+    if [ -f "$PIDFILE" ]; then
+        start-stop-daemon -K -p $PIDFILE 2>/dev/null
+        rm -f $PIDFILE
+    fi
+    echo "OK"
+}
+
+case "$1" in
+    start)   start ;;
+    stop)    stop ;;
+    restart) stop; sleep 1; start ;;
+    *)       echo "Usage: $0 {start|stop|restart}"; exit 1 ;;
+esac

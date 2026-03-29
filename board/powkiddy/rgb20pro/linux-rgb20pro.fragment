@@ -1,6 +1,11 @@
 # RGB20Pro kernel configuration fragment
 # Extends the waybeam base with RGB20Pro-specific hardware support
 
+# ---- Framebuffer console ----
+# Disable fbcon so pixelpilot can own DRM planes without conflict.
+# DRM_FBDEV_EMULATION stays enabled for shared OSD buffer across displays.
+# CONFIG_FRAMEBUFFER_CONSOLE is not set
+
 # ---- Display panel ----
 # The generic-dsi panel driver is built as an out-of-tree module
 # (package/panel-generic-dsi). These in-tree panel drivers are kept
