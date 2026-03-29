@@ -397,6 +397,13 @@
 	vref-supply = <&vcc_1v8>;
 };
 
+/* ---- USB OTG port: force host mode for USB accessories ---- */
+/* Charging is handled by the RK817 PMIC regardless of USB controller mode.
+   Without fusb302 USB-C detection, OTG can't auto-switch, so force host. */
+&usbdrd_dwc3 {
+	dr_mode = "host";
+};
+
 /* ---- WiFi (RTL8821CS over SDIO on sdmmc2) ---- */
 /* darkOS uses sdmmc2, not sdmmc1. sdmmc1 is a regular SD slot. */
 &sdmmc2 {
