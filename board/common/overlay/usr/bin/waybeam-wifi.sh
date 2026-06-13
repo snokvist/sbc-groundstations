@@ -20,6 +20,9 @@ LOG_FILE="/var/log/waybeam-wifi.log"
 # ---------------------------------------------------------------------------
 # Defaults (overridden by config)
 # ---------------------------------------------------------------------------
+# WIFI_MODE: "sta" (station) | "ap" (access point) | "off" (disable STA/AP and
+# leave the radio free, e.g. for a gs_supervisor passive monitor-mode RX that
+# owns the card itself).
 WIFI_MODE="sta"
 WIFI_NETWORKS=""
 WIFI_PRIMARY_IFACE="auto"
@@ -842,6 +845,14 @@ load_config
 
 case "${1:-}" in
     start)
+        # WIFI_MODE=off leaves the radio free for a passive monitor-mode RX
+        # (e.g. gs_supervisor owns the card). No-op so boot continues.
+        case "$WIFI_MODE" in
+            off|disabled|none)
+                log_info "WIFI_MODE=$WIFI_MODE — STA/AP WiFi disabled, leaving radio free for passive RX (gs_supervisor)"
+                exit 0
+                ;;
+        esac
         if ! wait_for_wifi_ifaces; then
             exit 1
         fi
@@ -868,6 +879,7 @@ case "${1:-}" in
         ;;
 
     stop)
+        case "$WIFI_MODE" in off|disabled|none) exit 0 ;; esac
         coop_rx_monitor_stop
         coop_rx_stop 2>/dev/null || true
         case "$WIFI_MODE" in
