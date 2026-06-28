@@ -215,6 +215,11 @@ generate_wpa_conf() {
         umask 077
         _prio=100
         cat > "$WPA_CONF" <<'HEADER'
+# ctrl_interface exposes a wpa_cli control socket at /run/wpa_supplicant/<iface>.
+# Without it wpa_supplicant runs socket-less and `wpa_cli signal_poll` fails, so
+# mod_metrics' wpa_cli source (which scans /run|/var/run/wpa_supplicant) can't
+# read RSSI — the Mode Console Signal field then shows empty in APFPV.
+ctrl_interface=DIR=/run/wpa_supplicant GROUP=netdev
 ap_scan=1
 
 # Sticky connection: disable roaming, never let wpa_supplicant give up
@@ -286,8 +291,12 @@ sta_connect() {
         _attempt=$((_attempt + 1))
         log_info "Connection attempt $_attempt/$WIFI_SCAN_RETRIES on $_iface..."
 
-        rm -f "/var/run/wpa_supplicant/$_iface"
-        mkdir -p /var/run/wpa_supplicant
+        # Kill any instance from a prior (un-associated) attempt before starting a
+        # new one — otherwise a slow-to-associate attempt leaves an orphan and the
+        # retries pile up multiple wpa_supplicant on one card, all fighting the
+        # iface and the ctrl socket.
+        _kill_wpa "$_iface"
+        mkdir -p /run/wpa_supplicant
         if ! wpa_supplicant -B -D nl80211 -i "$_iface" -c "$WPA_CONF"; then
             log_warn "wpa_supplicant failed to start (attempt $_attempt)"
             sleep 2
@@ -682,6 +691,16 @@ coop_rx_monitor_stop() {
         fi
         rm -f "$MONITOR_PID"
     fi
+    # Reap any ORPHANED monitor subshells whose PID file was lost or overwritten
+    # by a racing re-invocation (repeated APFPV<->wfb_ng flips each _spawn_bg a
+    # fresh `start`, and a leaked watchdog keeps respawning wpa_supplicant -> the
+    # pileup). They linger under this script's own cmdline; exclude our own
+    # process + parent so we never suicide. Guarantees a single monitor.
+    _self=$$; _par=${PPID:-0}
+    for _p in $(ps -eo pid,args 2>/dev/null | grep '/usr/bin/waybeam-wifi.sh start' \
+                | grep -v grep | awk -v s="$_self" -v p="$_par" '$1!=s && $1!=p {print $1}'); do
+        kill "$_p" 2>/dev/null || true
+    done
 }
 
 # ---------------------------------------------------------------------------
