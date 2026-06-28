@@ -12,6 +12,24 @@
 #   /etc/NetworkManager/conf.d/99-wfb-unmanaged.conf:
 #     [keyfile]
 #     unmanaged-devices=mac:AA:BB:CC:..;mac:DD:EE:FF:..
+#
+# REGULATORY DOMAIN (mandatory for the APFPV ch149/161 UNII-3 AP):
+# The rtl88x2cu (88x2cu) registers a SELF-MANAGED cfg80211 wiphy, so `iw reg set`
+# is ignored. By default `rtw_regd_src=1` (OS) makes it follow the host OS reg
+# domain — on a desktop that is often NL/DE/etc (ETSI), which FORBIDS UNII-3
+# (ch149/161). The symptom is brutal and silent: the card RXes fine (scans, sees
+# `waybeam-03` at strong signal) but `iw dev <if> info` shows `txpower -100.00 dBm`,
+# so association requests are never transmitted — wpa_supplicant cycles
+# SCANNING -> ASSOCIATING -> SCANNING forever, never COMPLETED. Force the driver's
+# PRIVATE regd to a UNII-3-permitting country at module load:
+#   /etc/modprobe.d/88x2cu-waybeam.conf:
+#     options 88x2cu rtw_regd_src=0 rtw_country_code=US
+# Verify per-card (not the global `iw reg get`, which is irrelevant for a
+# self-managed wiphy): `iw phy <phyN> reg get` must show `country US`, and once
+# on ch149 `iw dev <if> info` must show a real txpower (~25 dBm). The same card +
+# same morrownr 88x2cu associates out of the box on an embedded GS (e.g. RK3566)
+# only because that host's reg domain defaults to world (`country 00`), which
+# leaves UNII-3 active — so this is purely a desktop-host reg-domain trap.
 
 # wfb_ng monitor RX owner (the wfb-gs supervisor). Detach so it survives the toggle.
 WFB_START_CMD="nohup /opt/waybeam/wfb-gs supervisor --config /etc/wfb/host_x86.json >/tmp/wfb-gs.log 2>&1"
