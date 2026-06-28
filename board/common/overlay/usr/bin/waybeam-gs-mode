@@ -83,13 +83,27 @@ wfb_up() {
     return 1
 }
 wfb_down() {
-    if [ -x "$INIT_GS" ]; then "$INIT_GS" stop; return 0; fi
-    if [ -n "${WFB_STOP_CMD:-}" ]; then sh -c "$WFB_STOP_CMD"; return 0; fi
-    # best-effort SIGTERM (never -9) so the daemon runs its monitor teardown
-    for _p in gs_supervisor wfb-gs; do
-        _pids=$(pidof "$_p" 2>/dev/null)
-        [ -n "$_pids" ] && { log "SIGTERM $_p ($_pids)"; kill -TERM $_pids 2>/dev/null; }
+    if [ -x "$INIT_GS" ]; then "$INIT_GS" stop
+    elif [ -n "${WFB_STOP_CMD:-}" ]; then sh -c "$WFB_STOP_CMD"
+    else
+        # best-effort SIGTERM (never -9) so the daemon runs its monitor teardown
+        for _p in gs_supervisor wfb-gs; do
+            _pids=$(pidof "$_p" 2>/dev/null)
+            [ -n "$_pids" ] && { log "SIGTERM $_p ($_pids)"; kill -TERM $_pids 2>/dev/null; }
+        done
+    fi
+    # Wait for the supervisor to actually exit before returning. On the way out
+    # it runs its monitor teardown (`ip link set <card> down` on the RX/STA
+    # cards). If go_apfpv raced ahead to sta_up, that deferred card-down would
+    # clobber the STA bring-up and the flip would only converge ~30s later via
+    # the wifi watchdog. Poll up to ~6s so APFPV comes up deterministically.
+    _n=0
+    while [ "$_n" -lt 60 ]; do
+        pidof gs_supervisor >/dev/null 2>&1 || pidof wfb-gs >/dev/null 2>&1 || break
+        sleep 0.1
+        _n=$((_n + 1))
     done
+    [ "$_n" -ge 60 ] && log "WARN: wfb_ng owner still present after ~6s; proceeding anyway"
     return 0
 }
 
