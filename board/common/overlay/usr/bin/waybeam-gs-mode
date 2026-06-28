@@ -1,0 +1,137 @@
+#!/bin/sh
+#
+# waybeam-gs-mode — Waybeam ground-station radio mode toggle (APFPV <-> wfb_ng)
+#
+# The ground station carries ONE WiFi card owned by exactly one of two
+# mutually-exclusive stacks, gated by WIFI_MODE in /etc/waybeam-wifi.conf:
+#
+#   apfpv : waybeam-wifi.sh  -> wpa_supplicant STA, associates to the vehicle AP
+#           (WIFI_MODE=sta). Full bidirectional IP; the apfpv udhcpc script adds
+#           no default route, so eth0 management/SSH survives.
+#   wfbng : gs_supervisor / wfb-gs -> card in monitor mode, wfb_rx decodes the
+#           vehicle video downlink to 127.0.0.1:5600 (WIFI_MODE=off).
+#
+# A switch is always: stop the current owner (SIGTERM — lets it run its
+# teardown) -> rewrite WIFI_MODE -> start the other owner (backgrounded). The
+# hub and SSH ride eth0, never the WiFi card, so a failed flip cannot strand
+# management. NEVER SIGKILL — that leaves the card half-configured.
+#
+# Host-portable: on an RK3566 SBC it wraps the S45waybeam-wifi /
+# S46gs_supervisor init scripts; on a generic x86 host it falls back to direct
+# daemon commands, overridable via /etc/waybeam-gs-mode.conf. Runs standalone OR
+# is invoked by the hub's POST /gs/mode orchestrator (`waybeam-gs-mode apfpv|wfbng`).
+#
+# Usage: waybeam-gs-mode {apfpv|wfbng|status}
+
+set -u
+
+WIFI_CONF="/etc/waybeam-wifi.conf"
+WIFI_SH="/usr/bin/waybeam-wifi.sh"
+INIT_WIFI="/etc/init.d/S45waybeam-wifi"
+INIT_GS="/etc/init.d/S46gs_supervisor"
+TAG="waybeam-gs-mode"
+
+# Optional per-host overrides (x86 standalone). Any of:
+#   WIFI_CONF, WFB_START_CMD, WFB_STOP_CMD, STA_START_CMD, STA_STOP_CMD
+[ -r /etc/waybeam-gs-mode.conf ] && . /etc/waybeam-gs-mode.conf
+
+log() { echo "[$TAG] $*"; }
+
+# --- WIFI_MODE in waybeam-wifi.conf: surgically patch the one line, preserve
+# the rest of the file (and its inode) ---
+set_wifi_mode() {
+    _want="$1"
+    if [ ! -f "$WIFI_CONF" ]; then
+        log "WARN: $WIFI_CONF absent; not setting WIFI_MODE"
+        return 0
+    fi
+    if grep -q '^[[:space:]]*WIFI_MODE=' "$WIFI_CONF"; then
+        _tmp="/tmp/.waybeam-gs-mode.$$"
+        if sed "s|^[[:space:]]*WIFI_MODE=.*|WIFI_MODE=\"$_want\"|" "$WIFI_CONF" > "$_tmp"; then
+            cat "$_tmp" > "$WIFI_CONF"
+        fi
+        rm -f "$_tmp"
+    else
+        printf '\nWIFI_MODE="%s"\n' "$_want" >> "$WIFI_CONF"
+    fi
+    log "WIFI_MODE=$_want"
+}
+
+current_wifi_mode() {
+    if [ ! -f "$WIFI_CONF" ]; then echo "unknown"; return; fi
+    _m=$(sed -n 's|^[[:space:]]*WIFI_MODE="\{0,1\}\([a-z_]*\)"\{0,1\}.*|\1|p' "$WIFI_CONF" | head -1)
+    echo "${_m:-unknown}"
+}
+
+# --- wfb_ng owner (gs_supervisor / wfb-gs monitor RX) ---
+wfb_up() {
+    if [ -x "$INIT_GS" ]; then "$INIT_GS" start; return $?; fi
+    if [ -n "${WFB_START_CMD:-}" ]; then log "wfb start: $WFB_START_CMD"; sh -c "$WFB_START_CMD" & return 0; fi
+    log "ERROR: no $INIT_GS and no WFB_START_CMD (set /etc/waybeam-gs-mode.conf)"
+    return 1
+}
+wfb_down() {
+    if [ -x "$INIT_GS" ]; then "$INIT_GS" stop; return 0; fi
+    if [ -n "${WFB_STOP_CMD:-}" ]; then sh -c "$WFB_STOP_CMD"; return 0; fi
+    # best-effort SIGTERM (never -9) so the daemon runs its monitor teardown
+    for _p in gs_supervisor wfb-gs; do
+        _pids=$(pidof "$_p" 2>/dev/null)
+        [ -n "$_pids" ] && { log "SIGTERM $_p ($_pids)"; kill -TERM $_pids 2>/dev/null; }
+    done
+    return 0
+}
+
+# --- APFPV owner (waybeam-wifi.sh STA) ---
+sta_up() {
+    if [ -x "$INIT_WIFI" ]; then "$INIT_WIFI" start; return $?; fi
+    if [ -x "$WIFI_SH" ]; then "$WIFI_SH" start & return 0; fi
+    if [ -n "${STA_START_CMD:-}" ]; then sh -c "$STA_START_CMD" & return 0; fi
+    log "ERROR: no $INIT_WIFI / $WIFI_SH and no STA_START_CMD"
+    return 1
+}
+sta_down() {
+    if [ -x "$INIT_WIFI" ]; then "$INIT_WIFI" stop; return 0; fi
+    if [ -x "$WIFI_SH" ]; then "$WIFI_SH" stop; return 0; fi
+    [ -n "${STA_STOP_CMD:-}" ] && sh -c "$STA_STOP_CMD"
+    return 0
+}
+
+go_apfpv() {
+    log "GS -> APFPV: stop wfb_ng RX, set STA, associate to vehicle AP"
+    wfb_down
+    set_wifi_mode sta
+    sta_up
+    log "APFPV requested — STA associating (watch: $WIFI_SH status)"
+}
+go_wfbng() {
+    log "GS -> wfb_ng: stop STA, set monitor, start RX"
+    sta_down
+    set_wifi_mode off
+    wfb_up
+    log "wfb_ng requested — monitor RX coming up"
+}
+
+do_status() {
+    echo "wifi_mode: $(current_wifi_mode)"
+    if pidof gs_supervisor >/dev/null 2>&1 || pidof wfb-gs >/dev/null 2>&1; then
+        echo "owner: gs_supervisor/wfb-gs (wfb_ng monitor RX)"
+    elif [ -x "$WIFI_SH" ] && "$WIFI_SH" status >/dev/null 2>&1; then
+        echo "owner: waybeam-wifi (APFPV STA)"
+    else
+        echo "owner: none"
+    fi
+    for _phy in /sys/class/net/*/phy80211; do
+        [ -e "$_phy" ] || continue
+        _if=$(basename "$(dirname "$_phy")")
+        case "$_if" in lo|eth*|usb*) continue ;; esac
+        _type=$(iw dev "$_if" info 2>/dev/null | sed -n 's/.*type \(.*\)/\1/p' | head -1)
+        echo "iface $_if: ${_type:-unknown}"
+    done
+}
+
+case "${1:-}" in
+    apfpv|0|sta)        go_apfpv ;;
+    wfbng|wfb_ng|1|off) go_wfbng ;;
+    status|"")          do_status ;;
+    *) echo "Usage: $0 {apfpv|wfbng|status}" >&2; exit 1 ;;
+esac
