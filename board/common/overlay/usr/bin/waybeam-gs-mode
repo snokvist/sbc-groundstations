@@ -122,6 +122,32 @@ sta_down() {
     return 0
 }
 
+# Reload the wifi driver so the TX card re-initializes cleanly before wfb_ng.
+# The rtl8812cu/88x2cu wedges when its interface is switched between managed
+# (APFPV STA) and monitor (wfb_ng) mode: the radio comes up UNINITIALIZED
+# (txpower -100 dBm, no injection), so the keyed uplink AND the keyless recovery
+# silently transmit nothing while the card still RECEIVES video fine — the link
+# looks one-way-dead with a perfectly matched key. A driver remove/reinsert
+# restores it (txpower returns to a real value). Opt-in: set
+# WFB_DRIVER_RELOAD=<module> in /etc/waybeam-gs-mode.conf (e.g. 88x2cu); skipped
+# when empty. Waits for the phy ifaces (MAC-stable names) to re-enumerate.
+wfb_driver_reinit() {
+    _mod="${WFB_DRIVER_RELOAD:-}"
+    [ -n "$_mod" ] || return 0
+    _before=$(ls -d /sys/class/net/*/phy80211 2>/dev/null | wc -l)
+    log "reinit wifi driver '$_mod' ($_before phy iface(s) present) — clears monitor<->managed TX wedge"
+    modprobe -r "$_mod" 2>/dev/null || true
+    sleep 1
+    modprobe "$_mod" 2>/dev/null || true
+    _t=0; _now=0
+    while [ "$_t" -lt 15 ]; do
+        _now=$(ls -d /sys/class/net/*/phy80211 2>/dev/null | wc -l)
+        [ "$_now" -ge "$_before" ] && { log "wifi driver reloaded ($_now phy iface(s) back after ${_t}s)"; return 0; }
+        sleep 1; _t=$((_t + 1))
+    done
+    log "WARN: only $_now/$_before phy ifaces back ${_t}s after '$_mod' reload"
+}
+
 go_apfpv() {
     log "GS -> APFPV: stop wfb_ng RX, set STA, associate to vehicle AP"
     wfb_down
@@ -133,6 +159,7 @@ go_wfbng() {
     log "GS -> wfb_ng: stop STA, set monitor, start RX"
     sta_down
     set_wifi_mode off
+    wfb_driver_reinit   # un-wedge the TX card from the prior managed-mode STA
     wfb_up
     log "wfb_ng requested — monitor RX coming up"
 }

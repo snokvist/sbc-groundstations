@@ -691,6 +691,16 @@ coop_rx_monitor_stop() {
         fi
         rm -f "$MONITOR_PID"
     fi
+    # Reap any ORPHANED monitor subshells whose PID file was lost or overwritten
+    # by a racing re-invocation (repeated APFPV<->wfb_ng flips each _spawn_bg a
+    # fresh `start`, and a leaked watchdog keeps respawning wpa_supplicant -> the
+    # pileup). They linger under this script's own cmdline; exclude our own
+    # process + parent so we never suicide. Guarantees a single monitor.
+    _self=$$; _par=${PPID:-0}
+    for _p in $(ps -eo pid,args 2>/dev/null | grep '/usr/bin/waybeam-wifi.sh start' \
+                | grep -v grep | awk -v s="$_self" -v p="$_par" '$1!=s && $1!=p {print $1}'); do
+        kill "$_p" 2>/dev/null || true
+    done
 }
 
 # ---------------------------------------------------------------------------
