@@ -1,0 +1,23 @@
+# /etc/waybeam-gs-mode.conf — x86 host override for waybeam-gs-mode.
+#
+# An x86 dev box has no S45waybeam-wifi / S46gs_supervisor init scripts, so define
+# how to start/stop each card owner directly. CRITICAL: every command here must
+# touch ONLY the wfb WiFi adapters (the rtl88x2 USB sticks), never the onboard
+# WiFi that NetworkManager owns (that carries the host's own internet).
+#
+# Pair this with /etc/waybeam-wifi.conf setting:
+#   WIFI_PRIMARY_IFACE="wlxAABBCC..."             # the ONE STA adapter (APFPV = single, no diversity)
+#   WIFI_MANAGED_IFACES="wlxAABBCC..."            # scope waybeam-wifi.sh to that card only
+# and an NM rule keeping the rtl cards unmanaged, e.g.
+#   /etc/NetworkManager/conf.d/99-wfb-unmanaged.conf:
+#     [keyfile]
+#     unmanaged-devices=mac:AA:BB:CC:..;mac:DD:EE:FF:..
+
+# wfb_ng monitor RX owner (the wfb-gs supervisor). Detach so it survives the toggle.
+WFB_START_CMD="nohup /opt/waybeam/wfb-gs supervisor --config /etc/wfb/host_x86.json >/tmp/wfb-gs.log 2>&1"
+# SIGTERM by exact process name (lets it run system.down) — NEVER pkill -f (self-kills the shell) or -9.
+WFB_STOP_CMD="pkill -TERM -x wfb-gs 2>/dev/null; pkill -TERM -x gs_supervisor 2>/dev/null; true"
+
+# APFPV STA owner (the portable waybeam-wifi.sh, scoped by WIFI_MANAGED_IFACES).
+STA_START_CMD="/usr/bin/waybeam-wifi.sh start"
+STA_STOP_CMD="/usr/bin/waybeam-wifi.sh stop"

@@ -26,6 +26,7 @@ LOG_FILE="/var/log/waybeam-wifi.log"
 WIFI_MODE="sta"
 WIFI_NETWORKS=""
 WIFI_PRIMARY_IFACE="auto"
+WIFI_MANAGED_IFACES=""   # empty = manage all; set on multi-card hosts to scope
 WIFI_UDHCPC_SCRIPT="/etc/udhcpc/udhcpc.apfpv.script"
 COOP_RX_ENABLED="auto"
 COOP_RX_MONITOR_INTERVAL=5
@@ -83,13 +84,25 @@ load_config() {
 # Interface discovery (driver-agnostic)
 # ---------------------------------------------------------------------------
 
-# List all WiFi interface names
+# List all WiFi interface names.
+# WIFI_MANAGED_IFACES (optional, space-separated): when set, ONLY these
+# interfaces are managed — every other WiFi card is ignored. Required on
+# multi-card hosts (e.g. an x86 dev box whose onboard WiFi belongs to
+# NetworkManager): without it this script would bring that card down on
+# stop/disconnect and cut the host's own connectivity. Empty (the SBC default,
+# single USB card) = manage every discovered WiFi iface, unchanged behaviour.
 discover_wifi_ifaces() {
     _ifaces=""
     for _phy in /sys/class/net/*/phy80211; do
         [ -d "$_phy" ] || continue
         _name=$(basename "$(dirname "$_phy")")
         case "$_name" in lo|eth*|usb*) continue ;; esac
+        if [ -n "${WIFI_MANAGED_IFACES:-}" ]; then
+            case " $WIFI_MANAGED_IFACES " in
+                *" $_name "*) : ;;
+                *) continue ;;
+            esac
+        fi
         _ifaces="$_ifaces $_name"
     done
     echo "$_ifaces" | xargs
