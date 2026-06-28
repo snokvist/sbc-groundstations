@@ -872,6 +872,16 @@ case "${1:-}" in
 
         case "$WIFI_MODE" in
             sta)
+                # Idempotent start: a previous flip (or a re-invocation) may have
+                # left the watchdog monitor + wpa_supplicant/udhcpc running on
+                # these ifaces. Clear them FIRST so repeated `start`s never stack
+                # monitors or pile up orphan wpa/udhcpc — the pileup wedges the
+                # card in managed mode and blocks a later wfb_ng monitor flip.
+                coop_rx_monitor_stop 2>/dev/null || true
+                for _if in $(discover_wifi_ifaces); do
+                    _kill_wpa "$_if"
+                    _kill_udhcpc "$_if"
+                done
                 if sta_connect; then
                     coop_rx_start || true
                     coop_rx_monitor_start || true

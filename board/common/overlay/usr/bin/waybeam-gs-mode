@@ -37,6 +37,18 @@ TAG="waybeam-gs-mode"
 
 log() { echo "[$TAG] $*"; }
 
+# Launch a backgrounded owner FULLY DETACHED from the caller's stdio + session,
+# so a direct `waybeam-gs-mode apfpv|wfbng` (or the hub's POST /gs/mode system())
+# returns immediately instead of blocking until the child's pipe closes (the
+# STA bring-up + watchdog can run for minutes). setsid when available.
+_spawn_bg() {
+    if command -v setsid >/dev/null 2>&1; then
+        setsid sh -c "$1" </dev/null >/dev/null 2>&1 &
+    else
+        sh -c "$1" </dev/null >/dev/null 2>&1 &
+    fi
+}
+
 # --- WIFI_MODE in waybeam-wifi.conf: surgically patch the one line, preserve
 # the rest of the file (and its inode) ---
 set_wifi_mode() {
@@ -66,7 +78,7 @@ current_wifi_mode() {
 # --- wfb_ng owner (gs_supervisor / wfb-gs monitor RX) ---
 wfb_up() {
     if [ -x "$INIT_GS" ]; then "$INIT_GS" start; return $?; fi
-    if [ -n "${WFB_START_CMD:-}" ]; then log "wfb start: $WFB_START_CMD"; sh -c "$WFB_START_CMD" & return 0; fi
+    if [ -n "${WFB_START_CMD:-}" ]; then log "wfb start: $WFB_START_CMD"; _spawn_bg "$WFB_START_CMD"; return 0; fi
     log "ERROR: no $INIT_GS and no WFB_START_CMD (set /etc/waybeam-gs-mode.conf)"
     return 1
 }
@@ -84,8 +96,8 @@ wfb_down() {
 # --- APFPV owner (waybeam-wifi.sh STA) ---
 sta_up() {
     if [ -x "$INIT_WIFI" ]; then "$INIT_WIFI" start; return $?; fi
-    if [ -x "$WIFI_SH" ]; then "$WIFI_SH" start & return 0; fi
-    if [ -n "${STA_START_CMD:-}" ]; then sh -c "$STA_START_CMD" & return 0; fi
+    if [ -x "$WIFI_SH" ]; then _spawn_bg "$WIFI_SH start"; return 0; fi
+    if [ -n "${STA_START_CMD:-}" ]; then _spawn_bg "$STA_START_CMD"; return 0; fi
     log "ERROR: no $INIT_WIFI / $WIFI_SH and no STA_START_CMD"
     return 1
 }
@@ -129,9 +141,26 @@ do_status() {
     done
 }
 
+# Active radio mode from PROCESS PRESENCE (the two stacks are mutually
+# exclusive), for the hub banner — prints exactly one token: apfpv | wfb_ng |
+# none. A mode is "active" whenever its owner runs, even with NO video link, so
+# the banner can show the real mode instead of "link lost". Cheaper than
+# do_status (no per-iface `iw` walk); safe to poll.
+do_mode() {
+    if pidof gs_supervisor >/dev/null 2>&1 || pidof wfb-gs >/dev/null 2>&1; then
+        echo "wfb_ng"
+    elif { [ -x "$WIFI_SH" ] && "$WIFI_SH" status >/dev/null 2>&1; } ||
+         { [ -n "${STA_STATUS_CMD:-}" ] && sh -c "$STA_STATUS_CMD" >/dev/null 2>&1; }; then
+        echo "apfpv"
+    else
+        echo "none"
+    fi
+}
+
 case "${1:-}" in
     apfpv|0|sta)        go_apfpv ;;
     wfbng|wfb_ng|1|off) go_wfbng ;;
+    mode)               do_mode ;;
     status|"")          do_status ;;
-    *) echo "Usage: $0 {apfpv|wfbng|status}" >&2; exit 1 ;;
+    *) echo "Usage: $0 {apfpv|wfbng|mode|status}" >&2; exit 1 ;;
 esac
