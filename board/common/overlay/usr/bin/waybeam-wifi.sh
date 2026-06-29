@@ -34,6 +34,10 @@ WIFI_IFACE_WAIT=15
 WIFI_ASSOC_TIMEOUT=15
 WIFI_SCAN_RETRIES=3
 WIFI_RECONNECT_TIMEOUT=60
+# Cooldown (s) after the STA card is found wedged (unkillable D-state
+# wpa_supplicant / driver survey-lock). The watchdog waits this long before
+# re-attempting STA bring-up so it can never fork-bomb a wedged rtl8812cu.
+WIFI_WEDGE_BACKOFF=60
 AP_SSID="WaybeamGS"
 AP_PSK="waybeamgs"
 AP_CHANNEL=149
@@ -181,18 +185,58 @@ find_connected_iface() {
 _find_pids_for_iface() {
     _proc_name="$1"
     _iface_arg="$2"
-    # BusyBox ps w gives full command line; filter by process name and interface
-    ps w 2>/dev/null | grep "$_proc_name" | grep -v grep | \
-        grep -- "-i $_iface_arg" | awk '{print $1}'
+    # MUST find daemonized processes owned by another session/user (the root
+    # wpa_supplicant -B). BusyBox `ps w` lists every process so this worked on
+    # the RK3566 target, but procps `ps w` (BSD syntax, e.g. the x86 dev host)
+    # lists ONLY the caller's session — it silently MISSED the root wpa daemon,
+    # so _kill_wpa/_wpa_running saw nothing, the retry loop spawned over the
+    # invisible (often wedged) wpa, and the card fork-bombed (1195 D-state wpa,
+    # load >500). pgrep -f matches the full cmdline across ALL processes and is
+    # present on both procps and busybox; fall back to a /proc walk otherwise.
+    if command -v pgrep >/dev/null 2>&1; then
+        pgrep -f "$_proc_name.*-i $_iface_arg" 2>/dev/null
+        return
+    fi
+    for _fp_pd in /proc/[0-9]*; do
+        _fp_cmd=$(tr '\0' ' ' < "$_fp_pd/cmdline" 2>/dev/null) || continue
+        case " $_fp_cmd" in *" $_proc_name"*) ;; *) continue ;; esac
+        case "$_fp_cmd" in *"-i $_iface_arg "*) echo "${_fp_pd#/proc/}" ;; esac
+    done
 }
 
+# Kill wpa_supplicant for an interface and CONFIRM it actually died, returning
+# 0 only when the iface is genuinely clear of wpa_supplicant. A wpa_supplicant
+# stuck in D-state (uninterruptible) — which happens when the rtl8812cu driver
+# wedges into a survey-lock (firmware fwstate=0x808, every scan returns
+# "scan abort!! STA mode under survey") — IGNORES every signal, SIGKILL
+# included. The old code fired a signal, slept 1s, and returned unconditionally;
+# callers then respawned a fresh wpa over the surviving one and the retries
+# fork-bombed the wedged card (observed: 1195 unkillable wpa, load avg >500,
+# box only recoverable by reboot). Returning the real survival state lets every
+# caller refuse to spawn another onto a wedged card. [[wfb_ng_rtl88x2_tx_wedge_replug]]
 _kill_wpa() {
-    _pids=$(_find_pids_for_iface wpa_supplicant "$1")
+    _kw_if="$1"
+    _pids=$(_find_pids_for_iface wpa_supplicant "$_kw_if")
     if [ -n "$_pids" ]; then
         kill $_pids 2>/dev/null || true
-        sleep 1
+        # Wait for them to actually exit (a healthy wpa goes within ~1s).
+        _kw_w=0
+        while [ "$_kw_w" -lt 5 ]; do
+            _pids=$(_find_pids_for_iface wpa_supplicant "$_kw_if")
+            [ -z "$_pids" ] && break
+            sleep 1; _kw_w=$((_kw_w + 1))
+        done
+        # Still alive after SIGTERM — escalate once to SIGKILL (no-op on D-state
+        # but reaps a merely-busy one).
+        if [ -n "$_pids" ]; then
+            kill -9 $_pids 2>/dev/null || true
+            sleep 1
+            _pids=$(_find_pids_for_iface wpa_supplicant "$_kw_if")
+        fi
     fi
-    rm -f "/var/run/wpa_supplicant/$1"
+    rm -f "/run/wpa_supplicant/$_kw_if" "/var/run/wpa_supplicant/$_kw_if" 2>/dev/null
+    # Non-zero if wpa is STILL present (unkillable — driver wedged).
+    [ -z "$_pids" ]
 }
 
 _kill_udhcpc() {
@@ -204,6 +248,21 @@ _kill_udhcpc() {
 _wpa_running() {
     _pids=$(_find_pids_for_iface wpa_supplicant "$1")
     [ -n "$_pids" ]
+}
+
+# Apply the regulatory domain before STA bring-up (previously STA set none at
+# all). Best-effort: `iw reg set` is honoured on a global-regd wiphy; the
+# self-managed rtl8812cu keeps its driver-internal regd (rtw_country_code /
+# rtw_regd_src in /etc/modprobe.d) and reports a numeric code like `country 98`
+# — which is NORMAL for this card and still permits 5.8 GHz at full EIRP
+# (verified: ch149 associates at 25 dBm under "98"). So this is informational,
+# not a health gate — the real wedge signal is an uninitialized txpower AFTER
+# association, checked in sta_connect. [[x86_rtl8812cu_regd_unii3_trap]]
+_apply_regd() {
+    iw reg set "${AP_COUNTRY:-US}" 2>/dev/null || true
+    sleep 1
+    _rd_country=$(iw reg get 2>/dev/null | sed -n 's/^country \([A-Z0-9]*\).*/\1/p' | head -1)
+    log_info "regd: country ${_rd_country:-?} (AP_COUNTRY=${AP_COUNTRY:-US} requested)"
 }
 
 # ---------------------------------------------------------------------------
@@ -274,11 +333,20 @@ sta_connect() {
         return 0
     fi
 
-    # Kill stale wpa_supplicant for this interface
-    _kill_wpa "$_iface"
+    # Kill stale wpa_supplicant for this interface. If it will not die (D-state
+    # / driver survey-lock) DO NOT proceed — spawning over it fork-bombs the
+    # wedged card. Distinct rc=2 tells the watchdog to back off hard.
+    if ! _kill_wpa "$_iface"; then
+        log_error "wpa_supplicant on $_iface is unkillable (D-state, driver wedged) — refusing STA bring-up to avoid a fork-bomb. Card needs a driver reinit/reboot."
+        return 2
+    fi
 
     # Generate config
     generate_wpa_conf
+
+    # Apply the regulatory domain before bring-up so 5.8 GHz scan/assoc/TX is
+    # permitted; an unset/garbage regd wedges the card on UNII-3 channels.
+    _apply_regd
 
     # Bring interface up
     ip link set "$_iface" up
@@ -294,8 +362,12 @@ sta_connect() {
         # Kill any instance from a prior (un-associated) attempt before starting a
         # new one — otherwise a slow-to-associate attempt leaves an orphan and the
         # retries pile up multiple wpa_supplicant on one card, all fighting the
-        # iface and the ctrl socket.
-        _kill_wpa "$_iface"
+        # iface and the ctrl socket. If the prior one is UNKILLABLE (D-state,
+        # driver survey-lock), bail instead of spawning another and fork-bombing.
+        if ! _kill_wpa "$_iface"; then
+            log_error "wpa_supplicant on $_iface won't die (driver wedged) — aborting retries to avoid a fork-bomb."
+            return 2
+        fi
         mkdir -p /run/wpa_supplicant
         if ! wpa_supplicant -B -D nl80211 -i "$_iface" -c "$WPA_CONF"; then
             log_warn "wpa_supplicant failed to start (attempt $_attempt)"
@@ -310,6 +382,14 @@ sta_connect() {
                 _ssid=$(iw dev "$_iface" link 2>/dev/null | grep "SSID:" | awk '{print $2}')
                 _freq=$(iw dev "$_iface" link 2>/dev/null | grep "freq:" | awk '{print $2}')
                 log_info "Connected to $_ssid on ${_freq}MHz"
+                # Real wedge check: a survey-locked rtl8812cu can "associate" yet
+                # leave txpower at the uninitialized -100 dBm sentinel, so it RXes
+                # but transmits nothing (the one-way-dead symptom behind the uplink
+                # bitrate floor). Surface it; a real link reads ~20-30 dBm.
+                _txp=$(iw dev "$_iface" info 2>/dev/null | sed -n 's/.*txpower \(-\{0,1\}[0-9]*\).*/\1/p' | head -1)
+                if [ -n "$_txp" ] && [ "$_txp" -le 0 ] 2>/dev/null; then
+                    log_warn "Associated but txpower=${_txp}dBm (uninitialized) — card likely wedged, TX dead; a driver reinit may be needed"
+                fi
                 _connected=1
                 break 2
             fi
@@ -545,6 +625,21 @@ coop_rx_status() {
 # ---------------------------------------------------------------------------
 # Background monitor — coop RX lifecycle + STA watchdog
 # ---------------------------------------------------------------------------
+
+# Watchdog wrapper around sta_connect: when the card is wedged (rc=2 — unkillable
+# D-state wpa / driver survey-lock), cool down HARD before allowing any retry, so
+# the 2s watchdog loop can never fork-bomb a wedged rtl8812cu. Inherited by the
+# monitor subshell. Returns sta_connect's rc.
+_sta_connect_guarded() {
+    sta_connect 2>/dev/null
+    _scg_rc=$?
+    if [ "$_scg_rc" -eq 2 ]; then
+        log_warn "Monitor: STA card wedged (unkillable wpa / driver survey-lock); cooling down ${WIFI_WEDGE_BACKOFF}s before any retry. Card likely needs a driver reinit or reboot."
+        sleep "$WIFI_WEDGE_BACKOFF"
+    fi
+    return $_scg_rc
+}
+
 coop_rx_monitor_start() {
     # Don't double-start
     if [ -f "$MONITOR_PID" ]; then
@@ -581,7 +676,7 @@ coop_rx_monitor_start() {
                     # Try every 10s (5 * 2s) to find a new interface
                     if [ "$((_sta_fail_count % 5))" -eq 0 ]; then
                         log_info "Monitor: attempting STA recovery on new interface..."
-                        sta_connect 2>/dev/null && _sta_fail_count=0
+                        _sta_connect_guarded && _sta_fail_count=0
                     fi
                     continue
                 fi
@@ -590,7 +685,7 @@ coop_rx_monitor_start() {
                 if ! _wpa_running "$_primary"; then
                     log_warn "Monitor: wpa_supplicant not running for $_primary, restarting..."
                     _kill_udhcpc "$_primary"
-                    sta_connect 2>/dev/null || true
+                    _sta_connect_guarded || true
                     _sta_fail_count=0
                     _was_connected=0
                     continue
@@ -613,9 +708,9 @@ coop_rx_monitor_start() {
                     if [ "$_sta_fail_count" -ge "$_max_polls" ]; then
                         # Timeout exceeded — restart wpa_supplicant
                         log_warn "Monitor: no association for ${WIFI_RECONNECT_TIMEOUT}s, restarting wpa_supplicant..."
-                        _kill_wpa "$_primary"
+                        _kill_wpa "$_primary" || true
                         _kill_udhcpc "$_primary"
-                        sta_connect 2>/dev/null || true
+                        _sta_connect_guarded || true
                         _sta_fail_count=0
                         _was_connected=0
                     fi
@@ -719,8 +814,8 @@ ap_start() {
     # Kill any existing wpa_supplicant on this interface
     _kill_wpa "$_iface"
 
-    # Set regulatory domain
-    iw reg set "$AP_COUNTRY" 2>/dev/null || true
+    # Set regulatory domain (AP ch149 is UNII-3 — same regd trap as STA)
+    _apply_regd
 
     # Bring interface up
     ip link set "$_iface" up
