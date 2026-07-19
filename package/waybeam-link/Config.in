@@ -1,0 +1,19 @@
+config BR2_PACKAGE_WAYBEAM_LINK
+	bool "waybeam-link (ground station)"
+	depends on BR2_TOOLCHAIN_GCC_AT_LEAST_11
+	depends on BR2_INSTALL_LIBSTDCPP
+	depends on BR2_TOOLCHAIN_HAS_THREADS
+	help
+	  waybeam-link ground RX: a best-effort, latency-first broadcast
+	  video + telemetry link over monitor/injection WiFi
+	  (RTL8812AU/CU/EU) with per-adapter receive diversity, opt-in
+	  importance-gated ARQ, an adaptive per-MCS rate/power layer, and a
+	  coordinated follow-me channel switch. Built on the vendored OpenIPC
+	  devourer userspace radio stack (static libusb, no system dep).
+
+	  Replaces the wfb-ng ground link. The RX role delivers recovered
+	  RTP to 127.0.0.1:5600 for the waybeam-hub decoder.
+
+comment "waybeam-link needs a gcc >= 11, C++ and threads toolchain"
+	depends on !BR2_TOOLCHAIN_GCC_AT_LEAST_11 || \
+		!BR2_INSTALL_LIBSTDCPP || !BR2_TOOLCHAIN_HAS_THREADS
