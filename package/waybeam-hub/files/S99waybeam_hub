@@ -12,13 +12,29 @@ start() {
 
 stop() {
 	echo -n "Stopping $DAEMON: "
+	# Capture the pid before -K in case start-stop-daemon removes the pidfile.
+	pid=$(cat $PIDFILE 2>/dev/null)
 	start-stop-daemon -K -p $PIDFILE
+	# waybeam_hub's pipeline teardown can take >1s. Wait for the process to
+	# actually exit so a following start() isn't skipped by start-stop-daemon
+	# still seeing the dying process (the S99 restart race).
+	if [ -n "$pid" ]; then
+		i=0
+		while kill -0 "$pid" 2>/dev/null; do
+			i=$((i + 1))
+			if [ "$i" -ge 15 ]; then
+				echo -n "(timeout) "
+				break
+			fi
+			sleep 1
+		done
+	fi
+	rm -f $PIDFILE
 	echo "OK"
 }
 
 restart() {
 	stop
-	sleep 1
 	start
 }
 
