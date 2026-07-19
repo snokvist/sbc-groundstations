@@ -1,0 +1,47 @@
+#!/bin/sh
+#
+# waybeam-link ground RX — best-effort diversity video/telemetry link.
+# Replaces the wfb-ng ground stack. Delivers recovered RTP to 127.0.0.1:5600
+# for the waybeam-hub decoder (started by S99waybeam_hub).
+#
+# The devourer radio backend (air.kind "radio") claims the RTL8812xx adapter
+# directly via libusb — the kernel WiFi driver must NOT be managing the radio
+# adapter(s). Per-unit adapter bus IDs, channel and the CSA psk live in
+# /etc/waybeam-link/rx.json and MUST be set before flight.
+#
+# Disabled until configured: create /etc/waybeam-link/enabled to auto-start.
+
+DAEMON="waybeam-link"
+CONFIG="/etc/waybeam-link/rx.json"
+ENABLE_FLAG="/etc/waybeam-link/enabled"
+PIDFILE="/var/run/waybeam-link.pid"
+
+start() {
+	if [ ! -f "$ENABLE_FLAG" ]; then
+		echo "$DAEMON: disabled (touch $ENABLE_FLAG to enable)"
+		return 0
+	fi
+	# Validate config + bindings before committing to the radio.
+	if ! /usr/bin/$DAEMON rx -c "$CONFIG" --check >/dev/null 2>&1; then
+		echo "$DAEMON: config check failed ($CONFIG) — not starting"
+		return 1
+	fi
+	echo -n "Starting $DAEMON: "
+	start-stop-daemon -S -b -m -p $PIDFILE \
+		-x /usr/bin/$DAEMON -- rx -c "$CONFIG"
+	echo "OK"
+}
+
+stop() {
+	echo -n "Stopping $DAEMON: "
+	start-stop-daemon -K -q -p $PIDFILE
+	rm -f $PIDFILE
+	echo "OK"
+}
+
+case "$1" in
+	start) start ;;
+	stop) stop ;;
+	restart|reload) stop; sleep 1; start ;;
+	*) echo "Usage: $0 {start|stop|restart}"; exit 1 ;;
+esac

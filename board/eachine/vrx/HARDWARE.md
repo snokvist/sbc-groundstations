@@ -2,8 +2,10 @@
 
 Ground-station VRX board built on a **Radxa Zero3 (Rockchip RK3566)** module.
 Electrically identical to the `radxa/zero3` board, so this profile reuses that
-board's kernel, U-Boot, DTS and patches — it overrides only the front-panel
-**button map** and the image identity.
+board's kernel, U-Boot, DTS, patches and overlay — `eachine_vrx_defconfig`
+differs from `waybeam_radxa3e_defconfig` only in image identity (hostname) and
+the explicitly-pinned boot-hold button pins. This file records the verified
+Eachine-specific hardware setup so it travels with the chassis.
 
 ## Provenance
 
@@ -34,16 +36,21 @@ Panel button → header PIN → resolved gpiochip3 line:
 | center | PIN_38 | 6  |
 | rec    | PIN_32 | 18 |
 
-### 1. Runtime menu buttons (pixelpilot `gsmenu`)
+### 1. Runtime menu buttons — NOT used by the waybeam image
 
-pixelpilot reads the header PIN numbers from `/etc/pixelpilot.yaml` and
-resolves each via `gpiofind "PIN_<n>"`. The factory unit selects the layout at
-boot from `setup.txt` (`gpio_layout = Ruby`); this profile bakes the resolved
-Eachine/"Ruby" map straight into `overlay/etc/pixelpilot.yaml`.
+On the **factory** unit, standalone `pixelpilot` reads these PIN numbers from
+`/etc/pixelpilot.yaml` (`gsmenu` block) and resolves each via
+`gpiofind "PIN_<n>"`, selecting the layout at boot from `setup.txt`
+(`gpio_layout = Ruby`).
 
-> Note vs `radxa/zero3`: that profile's map is identical **except it omits
-> `center: 38` (PIN_38)**. The Eachine panel has a working center/select
-> button — carry it or the menu-select action is dead.
+Our **waybeam image does not build pixelpilot** — `waybeam-hub` embeds the
+decoder/OSD and its config lives in `/etc/waybeam_hub.conf`, not
+`/etc/pixelpilot.yaml`. waybeam-hub currently has **no panel-GPIO button
+input**; its menu (`mod_menu`) is navigated by **RC channels**
+(`ch5`/`ch10`/`action_threshold`). A `pixelpilot.yaml` overlay was therefore
+inert and has been removed — the PIN→button map above is retained here as the
+reference to wire up if/when waybeam-hub gains GPIO-button support (upstream
+waybeam-hub feature).
 
 ### 2. Boot-hold buttons (initramfs `init`)
 
