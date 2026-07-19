@@ -4,6 +4,7 @@ A unified OpenIPC ground station image builder using Buildroot 2.
 
 - RunCam Wifilink
 - Emax Wyvern-Link
+- Eachine VRX (Radxa Zero3 based — see `board/eachine/vrx/HARDWARE.md`)
 - Radxa Zero3 (choose one of the above)
 
 # Upgrade

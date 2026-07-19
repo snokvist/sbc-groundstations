@@ -23,6 +23,7 @@ jobs:
       matrix:
         platform:
           - waybeam_radxa3e
+          - eachine_vrx
 
     steps:
 
