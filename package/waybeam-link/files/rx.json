@@ -17,6 +17,15 @@
       "stream_type": "RTP",
       "dir": "out",
       "bind": { "kind": "udp", "send": "127.0.0.1:5600" }
+    },
+    {
+      "stream_id": 1,
+      "stream_type": "AUDIO",
+      "dir": "out",
+      "bind": {
+        "kind": "udp",
+        "send": "127.0.0.1:5601"
+      }
     }
   ],
   "air": { "kind": "radio" },
