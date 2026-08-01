@@ -43,5 +43,5 @@
     }
   },
   "stats": { "hz": 1, "stdout": false },
-  "control": { "bind": "0.0.0.0:8091" }
+  "control": { "bind": "0.0.0.0:8092" }
 }
