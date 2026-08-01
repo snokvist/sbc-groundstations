@@ -5,9 +5,9 @@
 WAYBEAM_HUB_OVERRIDE_SRCDIR = $(realpath $(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/../waybeam-hub)
 
 # ---- waybeam-link: build from local source (private repo) ----
-# Cloned alongside the coordination repo (dev/waybeam-link), one level above the
-# submodule tree. Falls back to the github SITE when the sibling is absent.
-WAYBEAM_LINK_OVERRIDE_SRCDIR = $(realpath $(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/../../waybeam-link)
+# Use the coordination sibling, matching the Hub override and the reviewed
+# cross-repo feature branch. Falls back to the immutable github pin in CI.
+WAYBEAM_LINK_OVERRIDE_SRCDIR = $(realpath $(BR2_EXTERNAL_OPENIPC_SBC_GS_PATH)/../waybeam-link)
 
 # ---- Fix host-LLVM build with GCC 14 / binutils 2.44 ----
 HOST_LLVM_CONF_OPTS += -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_LINK_LLVM_DYLIB=ON

@@ -12,7 +12,7 @@
 # authenticate to the private repo. Mirrors the waybeam-hub packaging pattern.
 #
 ###############################################################################
-WAYBEAM_LINK_VERSION = 95eaa0dca4ce98d7e93c4ec28afabb2e7114c4d
+WAYBEAM_LINK_VERSION = 223c27984c4a21beb04e2f90d52ac03c1ba775cf
 WAYBEAM_LINK_SITE = $(call github,snokvist,waybeam-link,$(WAYBEAM_LINK_VERSION))
 WAYBEAM_LINK_LICENSE = GPL-2.0-or-later
 WAYBEAM_LINK_LICENSE_FILES = LICENSE
