@@ -42,6 +42,6 @@
       "channel_allowlist": [5745, 5805, 5825]
     }
   },
-  "stats": { "hz": 1 },
+  "stats": { "hz": 1, "stdout": false },
   "control": { "bind": "0.0.0.0:8091" }
 }
