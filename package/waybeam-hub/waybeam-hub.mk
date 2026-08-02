@@ -7,7 +7,7 @@
 #
 ###############################################################################
 
-WAYBEAM_HUB_VERSION = 49295aadca4ce98d7e93c4ec28afabb2e7114c4d
+WAYBEAM_HUB_VERSION = 1491fb224cb8db8e36a17617cb80cab61d203aa2
 WAYBEAM_HUB_SITE = $(call github,snokvist,waybeam-hub,$(WAYBEAM_HUB_VERSION))
 WAYBEAM_HUB_DEPENDENCIES = rockchip-mpp gstreamer1 gst1-plugins-base \
 	libdrm eudev libgpiod cjson libcurl libpng librga
