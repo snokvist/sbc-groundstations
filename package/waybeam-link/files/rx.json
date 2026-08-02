@@ -7,16 +7,37 @@
   },
   "profile_table": "/etc/waybeam-link/table.json",
   "adapters": [
-    { "name": "uplink", "bus": "", "role": "tx", "channel": 5805, "bw": 20 },
-    { "name": "div0",   "bus": "", "role": "rx", "channel": 5805, "bw": 20 },
-    { "name": "div1",   "bus": "", "role": "rx", "channel": 5805, "bw": 20 }
+    {
+      "name": "uplink",
+      "bus": "",
+      "role": "tx",
+      "channel": 5805,
+      "bw": 20
+    },
+    {
+      "name": "div0",
+      "bus": "",
+      "role": "rx",
+      "channel": 5805,
+      "bw": 20
+    },
+    {
+      "name": "div1",
+      "bus": "",
+      "role": "rx",
+      "channel": 5805,
+      "bw": 20
+    }
   ],
   "streams": [
     {
       "stream_id": 0,
       "stream_type": "RTP",
       "dir": "out",
-      "bind": { "kind": "udp", "send": "127.0.0.1:5600" }
+      "bind": {
+        "kind": "udp",
+        "send": "127.0.0.1:5600"
+      }
     },
     {
       "stream_id": 1,
@@ -28,9 +49,15 @@
       }
     }
   ],
-  "air": { "kind": "radio" },
+  "air": {
+    "kind": "radio"
+  },
   "policy": {
-    "return": { "quiet_gap": true, "guard_us": 300, "return_window_us": 2000 },
+    "return": {
+      "quiet_gap": true,
+      "guard_us": 300,
+      "return_window_us": 2000
+    },
     "csa": {
       "psk": "CHANGE-ME-craft-and-ground-only",
       "settle_s": 3.0,
@@ -39,9 +66,22 @@
       "ack_timeout_ms": 1000,
       "rendezvous_timeout_s": 5,
       "home_chan": 5745,
-      "channel_allowlist": [5745, 5805, 5825]
+      "channel_allowlist": [
+        5745,
+        5805,
+        5825
+      ]
+    },
+    "calibration": {
+      "artifact_dir": "/etc/waybeam-link/calibration"
     }
   },
-  "stats": { "hz": 1, "stdout": false },
-  "control": { "bind": "0.0.0.0:8092" }
+  "_calibration_comment": "\u00a710.7 ground-uplink TX calibration (Pass 125). The result is written per-unit to artifact_dir and auto-applies only when the local uplink adapter AND the craft still match, so it is measured on YOUR hardware, never shipped. Run it once at commissioning from the LINK/calibrate menu ('calibrate both'), which also runs the craft downlink after it. Requires live video, the csa_psk above set on both ends, and no CSA/scout in flight. artifact_dir is stated explicitly because the package creates exactly this path \u2014 change one and you must change the other.",
+  "stats": {
+    "hz": 1,
+    "stdout": false
+  },
+  "control": {
+    "bind": "0.0.0.0:8092"
+  }
 }

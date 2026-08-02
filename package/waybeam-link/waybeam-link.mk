@@ -12,7 +12,7 @@
 # authenticate to the private repo. Mirrors the waybeam-hub packaging pattern.
 #
 ###############################################################################
-WAYBEAM_LINK_VERSION = 1b00c5a845f51da0440e763fd689a3a249a44ecc
+WAYBEAM_LINK_VERSION = 21f734a05900e0a4ca9439aa6fe69e409e658985
 WAYBEAM_LINK_SITE = $(call github,snokvist,waybeam-link,$(WAYBEAM_LINK_VERSION))
 WAYBEAM_LINK_LICENSE = GPL-2.0-or-later
 WAYBEAM_LINK_LICENSE_FILES = LICENSE
@@ -29,6 +29,14 @@ WAYBEAM_LINK_CONF_OPTS = \
 	-DWBLINK_BUILD_TESTS=OFF \
 	-DWBLINK_RADIO=ON
 
+# The §10.7 (Pass 125) calibration artifact directory is created here because
+# the store writes atomically (tmp + rename) and does NOT create its parent —
+# without it every ground calibration would seek correctly and then fail to
+# persist. It ships EMPTY by design: an artifact is measured per-unit against
+# specific hardware and auto-applies only on an identity match, so shipping
+# one would be shipping a placement for someone else's radio.
+# (Comments live outside the define: lines inside are handed to the shell and
+# echoed into the build log.)
 define WAYBEAM_LINK_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0755 $(@D)/waybeam-link $(TARGET_DIR)/usr/bin/waybeam-link
 	$(INSTALL) -D -m 0644 $(WAYBEAM_LINK_PKGDIR)/files/rx.json \
@@ -37,6 +45,7 @@ define WAYBEAM_LINK_INSTALL_TARGET_CMDS
 		$(TARGET_DIR)/etc/waybeam-link/table.json
 	$(INSTALL) -D -m 0755 $(WAYBEAM_LINK_PKGDIR)/files/S49waybeam-link \
 		$(TARGET_DIR)/etc/init.d/S49waybeam-link
+	$(INSTALL) -d -m 0755 $(TARGET_DIR)/etc/waybeam-link/calibration
 endef
 
 $(eval $(cmake-package))
