@@ -25,7 +25,46 @@ The chassis has 6 front-panel buttons. There is **no kernel `gpio-keys` /
 six lines pixelpilot claims (`lvgl_input`) are exactly the ones named
 `PIN_11/13/16/18/38/32`, matching the gsmenu values below.
 
-Panel button → header PIN → resolved gpiochip3 line:
+Panel button → header PIN → resolved gpiochip3 line.
+
+**CORRECTED 2026-08-22 by pressing each button on the unit.** The table below
+this one is what the factory `gsmenu` config claims; two of its entries are
+WRONG for this chassis and following them leaves `right` dead while `centre`
+behaves as `right`:
+
+| Button | header PIN | gpiochip3 line | how known |
+|--------|-----------|----------------|-----------|
+| up     | PIN_16 | 9  | pressed, confirmed |
+| down   | PIN_18 | 10 | pressed, confirmed |
+| left   | PIN_13 | 2  | pressed, confirmed |
+| **right**  | **PIN_40** | **5**  | pressed — **not in the factory list at all** |
+| **centre** | **PIN_11** | **1**  | pressed — factory list calls this "right" |
+| ?      | PIN_38 | 6  | fires, but is NOT the stick centre; identity unknown |
+| ?      | PIN_32 | 18 | fires; factory list calls it "rec", unverified |
+
+The stick is a **5-way** (up/down/left/right/centre). `PIN_38` and `PIN_32` are
+two further chassis buttons that both fire but have not been identified.
+
+**The trap that cost two debugging rounds: the factory list names six lines on
+`gpiochip3`, and taking those six as the search space hides `PIN_40`.** The
+Radxa header pins are spread across **gpiochip0, 1, 3 and 4** — `PIN_3`, `PIN_5`
+and `PIN_37` are on chip1, `PIN_8`/`PIN_10` on chip0, and `PIN_19`, `PIN_21`,
+`PIN_23`, `PIN_24`, `PIN_26`, `PIN_27`, `PIN_28` on chip4. When mapping a new
+chassis, monitor **every unused line on every chip** and press one button at a
+time:
+
+```sh
+for c in 0 1 2 3 4 5; do
+  offs=$(gpioinfo gpiochip$c | awk '/^[[:space:]]*line/ && /unused/ {gsub(/:/,"",$2); print $2}')
+  [ -n "$offs" ] && ( gpiomon --format="chip'"$c"' %o %e" gpiochip$c $offs > /tmp/gm_$c.txt & )
+done
+```
+
+Include a known-good button as a control, or a capture that records nothing is
+indistinguishable from a button that does nothing.
+
+Original factory `gsmenu` claim, kept because it is what the stock stack uses —
+**do not treat it as this chassis's map**:
 
 | Button | gsmenu `PIN_<n>` | gpiochip3 line |
 |--------|------------------|----------------|
