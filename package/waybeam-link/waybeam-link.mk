@@ -12,7 +12,13 @@
 # authenticate to the private repo. Mirrors the waybeam-hub packaging pattern.
 #
 ###############################################################################
-WAYBEAM_LINK_VERSION = 1b00c5a845f51da0440e763fd689a3a249a44ecc
+# Bumped to a commit that HAS node/ — the pin is what CI builds, since
+# WAYBEAM_LINK_OVERRIDE_SRCDIR resolves to empty without a sibling checkout.
+# The previous pin (1b00c5a) predates the node layer entirely: zero files under
+# node/, so it cannot produce libwblink_node.a or the header mod_wblink.c
+# includes. With the standalone daemon now retired, a CI image built on that
+# pin would have had no in-process link AND no binary — no RF claimant at all.
+WAYBEAM_LINK_VERSION = f4d66c4
 WAYBEAM_LINK_SITE = $(call github,snokvist,waybeam-link,$(WAYBEAM_LINK_VERSION))
 WAYBEAM_LINK_LICENSE = GPL-2.0-or-later
 WAYBEAM_LINK_LICENSE_FILES = LICENSE
@@ -65,8 +71,6 @@ define WAYBEAM_LINK_INSTALL_TARGET_CMDS
 		$(TARGET_DIR)/etc/waybeam-link/rx.json
 	$(INSTALL) -D -m 0644 $(WAYBEAM_LINK_PKGDIR)/files/table.json \
 		$(TARGET_DIR)/etc/waybeam-link/table.json
-	rm -f $(TARGET_DIR)/etc/init.d/S49waybeam-link
-	rm -f $(TARGET_DIR)/usr/bin/waybeam-link
 endef
 
 $(eval $(cmake-package))

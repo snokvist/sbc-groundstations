@@ -7,7 +7,12 @@
 #
 ###############################################################################
 
-WAYBEAM_HUB_VERSION = 1491fb224cb8db8e36a17617cb80cab61d203aa2
+# Bumped to a commit whose Makefile knows WBLINK at all. The previous pin
+# (1491fb2) has ZERO WBLINK references, so the variables passed below were
+# silently ignored and CI shipped a hub with no in-process node.
+# NOTE: mod_gpio lands with waybeam-hub #219 — bump again once that merges, or
+# the gpio block in waybeam_ground.conf stays inert on CI images.
+WAYBEAM_HUB_VERSION = e3d0799
 WAYBEAM_HUB_SITE = $(call github,snokvist,waybeam-hub,$(WAYBEAM_HUB_VERSION))
 WAYBEAM_HUB_DEPENDENCIES = rockchip-mpp gstreamer1 gst1-plugins-base \
 	libdrm eudev libgpiod cjson libcurl libpng librga
@@ -21,7 +26,9 @@ endif
 # makes waybeam-link a BUILD dependency, not just another package that happens
 # to be installed — without the ordering, the archives may not exist when the
 # hub links.
+ifeq ($(BR2_PACKAGE_WAYBEAM_LINK),y)
 WAYBEAM_HUB_DEPENDENCIES += waybeam-link
+endif
 
 # WBLINK_SRCDIR must be passed explicitly. The hub Makefile defaults it to
 # `../waybeam-link`, which is correct for a side-by-side developer checkout but
@@ -37,12 +44,24 @@ WAYBEAM_HUB_DEPENDENCIES += waybeam-link
 # (libwblink_*.a, devourer/, libusb/) share $(WAYBEAM_LINK_DIR).
 #
 # waybeam-hub Makefile uses pkg-config to discover flags — do not override CFLAGS/LDFLAGS
+# WBLINK=0 when the link package is not selected. powkiddy_rgb20pro enables the
+# hub WITHOUT waybeam-link, and an unconditional dependency there would both
+# drag the retired daemon back into that rootfs (per-package dirs are
+# hardlink-rsynced into dependents) and ask the hub to link archives nothing
+# built.
+ifeq ($(BR2_PACKAGE_WAYBEAM_LINK),y)
+WAYBEAM_HUB_WBLINK_ARGS = WBLINK=1 \
+	WBLINK_SRCDIR="$(WAYBEAM_LINK_DIR)" \
+	WBLINK_GROUND_BUILDDIR="$(WAYBEAM_LINK_DIR)"
+else
+WAYBEAM_HUB_WBLINK_ARGS = WBLINK=0
+endif
+
 define WAYBEAM_HUB_BUILD_CMDS
 	$(TARGET_MAKE_ENV) $(MAKE) -C $(@D) ground \
 		CC="$(TARGET_CC)" \
 		PKG_CONFIG="$(PKG_CONFIG_HOST_BINARY)" \
-		WBLINK_SRCDIR="$(WAYBEAM_LINK_DIR)" \
-		WBLINK_GROUND_BUILDDIR="$(WAYBEAM_LINK_DIR)"
+		$(WAYBEAM_HUB_WBLINK_ARGS)
 endef
 
 define WAYBEAM_HUB_INSTALL_TARGET_CMDS

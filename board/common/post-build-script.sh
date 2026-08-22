@@ -46,3 +46,19 @@ grep -q "Run customize.sh if it exists" $TARGET_DIR/etc/inittab || echo -e '
 grep -q "framebuffer getty" $TARGET_DIR/etc/inittab || echo '
 # framebuffer getty
 tty1::askfirst:/sbin/getty -L tty1 0 vt100' >> $TARGET_DIR/etc/inittab
+
+# --- retire the standalone waybeam-link daemon -------------------------------
+# The link runs IN-PROCESS inside waybeam-hub (mod_wblink); a second claimant on
+# the same adapter is the failure this prevents.
+#
+# This MUST live here and not in the package recipe. Inside a package,
+# $TARGET_DIR is per-package/<pkg>/target, and buildroot aggregates those into
+# the real rootfs with `rsync -a --hard-links --files-from=- --no-R` — NO
+# --delete. So an `rm -f` in INSTALL_TARGET_CMDS cleans only the package's own
+# directory and the real rootfs keeps anything ever installed. Proven in-tree:
+# the recipe carried that rm for a month while a Jul 19 S49waybeam-link sat in
+# output/eachine_vrx_defconfig/target/etc/init.d/ the whole time.
+#
+# Here $TARGET_DIR is the aggregated rootfs, so removal actually takes effect.
+rm -f "$TARGET_DIR/etc/init.d/S49waybeam-link"
+rm -f "$TARGET_DIR/usr/bin/waybeam-link"
