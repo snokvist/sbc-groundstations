@@ -29,14 +29,32 @@ WAYBEAM_LINK_CONF_OPTS = \
 	-DWBLINK_BUILD_TESTS=OFF \
 	-DWBLINK_RADIO=ON
 
+# files/S49waybeam-link is DELIBERATELY not installed below. waybeam-hub runs
+# this node in-process (`wblink.enabled`, waybeam-hub #218), and the two must
+# never both claim the adapter. The binary and configs still ship, so a
+# standalone fallback is one command away —
+# `waybeam-link rx -c /etc/waybeam-link/rx.json` — after setting
+# wblink.enabled=false and pixelpilot.frame_shm.source="ring" TOGETHER.
+#
+# The script stays in the tree as the reference for that fallback. If you
+# reinstate it, note rcS globs /etc/init.d/S??*, so disabling it again means
+# renaming OUT of that glob (K49...), not suffixing it.
+#
+# The explicit `rm -f` below is NOT redundant with simply dropping the INSTALL
+# line, and was added after measuring the difference. TARGET_DIR is cumulative
+# — in per-package mode too — so on any tree that has built this package
+# before, deleting the install command leaves the previously installed
+# S49waybeam-link sitting in the rootfs. The recipe was already correct and the
+# stale file shipped anyway. Only a from-scratch build would have cleared it,
+# which is exactly the kind of difference between a dev tree and a release
+# build that nobody notices until an image boots two link claimants.
 define WAYBEAM_LINK_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0755 $(@D)/waybeam-link $(TARGET_DIR)/usr/bin/waybeam-link
 	$(INSTALL) -D -m 0644 $(WAYBEAM_LINK_PKGDIR)/files/rx.json \
 		$(TARGET_DIR)/etc/waybeam-link/rx.json
 	$(INSTALL) -D -m 0644 $(WAYBEAM_LINK_PKGDIR)/files/table.json \
 		$(TARGET_DIR)/etc/waybeam-link/table.json
-	$(INSTALL) -D -m 0755 $(WAYBEAM_LINK_PKGDIR)/files/S49waybeam-link \
-		$(TARGET_DIR)/etc/init.d/S49waybeam-link
+	rm -f $(TARGET_DIR)/etc/init.d/S49waybeam-link
 endef
 
 $(eval $(cmake-package))
