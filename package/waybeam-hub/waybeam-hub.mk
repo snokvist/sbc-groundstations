@@ -16,11 +16,33 @@ ifeq ($(BR2_PACKAGE_MESA3D),y)
 WAYBEAM_HUB_DEPENDENCIES += mesa3d
 endif
 
+# The link is IN-PROCESS on this image (mod_wblink), so the hub links
+# waybeam-link's static archives and there is no standalone link daemon. That
+# makes waybeam-link a BUILD dependency, not just another package that happens
+# to be installed — without the ordering, the archives may not exist when the
+# hub links.
+WAYBEAM_HUB_DEPENDENCIES += waybeam-link
+
+# WBLINK_SRCDIR must be passed explicitly. The hub Makefile defaults it to
+# `../waybeam-link`, which is correct for a side-by-side developer checkout but
+# resolves to nothing inside buildroot, where the sibling is named
+# `waybeam-link-custom`. The failure was not obvious: mod_wblink.c stopped at
+# `fatal error: wblink/node/rx_node_c.h: No such file or directory`, the link
+# step never ran, and the STALE binary from the previous build stayed in place
+# — so `make` reported an error while the image still contained a working (but
+# months-old) hub.
+#
+# Both variables point at the same directory because buildroot builds
+# waybeam-link in-tree: the sources (node/include) and the cmake outputs
+# (libwblink_*.a, devourer/, libusb/) share $(WAYBEAM_LINK_DIR).
+#
 # waybeam-hub Makefile uses pkg-config to discover flags — do not override CFLAGS/LDFLAGS
 define WAYBEAM_HUB_BUILD_CMDS
 	$(TARGET_MAKE_ENV) $(MAKE) -C $(@D) ground \
 		CC="$(TARGET_CC)" \
-		PKG_CONFIG="$(PKG_CONFIG_HOST_BINARY)"
+		PKG_CONFIG="$(PKG_CONFIG_HOST_BINARY)" \
+		WBLINK_SRCDIR="$(WAYBEAM_LINK_DIR)" \
+		WBLINK_GROUND_BUILDDIR="$(WAYBEAM_LINK_DIR)"
 endef
 
 define WAYBEAM_HUB_INSTALL_TARGET_CMDS
