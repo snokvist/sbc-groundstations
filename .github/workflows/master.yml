@@ -21,9 +21,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Every board that ships waybeam-hub belongs here. The hub is built from
+        # a PIN in CI (WAYBEAM_HUB_OVERRIDE_SRCDIR resolves to empty without a
+        # sibling checkout), so a board left out of this matrix is a board whose
+        # integrated build nobody ever compiles — powkiddy_rgb20pro spent the
+        # whole in-process migration in that state and was found selecting
+        # waybeam-hub WITHOUT waybeam-link, which would have shipped a hub with
+        # no radio node and nothing would have failed.
         platform:
           - waybeam_radxa3e
           - eachine_vrx
+          - powkiddy_rgb20pro
 
     steps:
 
