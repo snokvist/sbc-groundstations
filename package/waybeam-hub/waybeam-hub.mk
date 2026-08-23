@@ -13,10 +13,10 @@
 # passed below were silently ignored and CI shipped a hub with no in-process
 # node while the recipe looked correct.
 #
-# d9631be = waybeam-hub #219 (mod_gpio). Checked before pinning: on origin/main,
-# 89 WBLINK references in its Makefile, and src/mod_gpio.{c,h} present — without
-# the latter the gpio block in waybeam_ground.conf is inert on CI images.
-WAYBEAM_HUB_VERSION = d9631be
+# 0468e5f = waybeam-hub #223. Checked before pinning with Link #244: the ground
+# build links the in-process node, serves the role-local status/debug page, and
+# forces every management proxy route to loopback.
+WAYBEAM_HUB_VERSION = 0468e5f
 WAYBEAM_HUB_SITE = $(call github,snokvist,waybeam-hub,$(WAYBEAM_HUB_VERSION))
 WAYBEAM_HUB_DEPENDENCIES = rockchip-mpp gstreamer1 gst1-plugins-base \
 	libdrm eudev libgpiod cjson libcurl libpng librga
