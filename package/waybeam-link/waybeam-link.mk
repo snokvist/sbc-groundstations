@@ -12,13 +12,10 @@
 # authenticate to the private repo. Mirrors the waybeam-hub packaging pattern.
 #
 ###############################################################################
-# Bumped to a commit that HAS node/ — the pin is what CI builds, since
-# WAYBEAM_LINK_OVERRIDE_SRCDIR resolves to empty without a sibling checkout.
-# The previous pin (1b00c5a) predates the node layer entirely: zero files under
-# node/, so it cannot produce libwblink_node.a or the header mod_wblink.c
-# includes. With the standalone daemon now retired, a CI image built on that
-# pin would have had no in-process link AND no binary — no RF claimant at all.
-WAYBEAM_LINK_VERSION = f4d66c4
+# 15eeb14 = waybeam-link #244. It adds the local profile/drop control reads and
+# sanitized effective-feature state consumed by the embedded Hub WebUI. No RF
+# wire or table change; the package remains an in-process library/config only.
+WAYBEAM_LINK_VERSION = 15eeb14
 WAYBEAM_LINK_SITE = $(call github,snokvist,waybeam-link,$(WAYBEAM_LINK_VERSION))
 WAYBEAM_LINK_LICENSE = GPL-2.0-or-later
 WAYBEAM_LINK_LICENSE_FILES = LICENSE
