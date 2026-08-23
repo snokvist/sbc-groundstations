@@ -7,12 +7,16 @@
 #
 ###############################################################################
 
-# Bumped to a commit whose Makefile knows WBLINK at all. The previous pin
-# (1491fb2) has ZERO WBLINK references, so the variables passed below were
-# silently ignored and CI shipped a hub with no in-process node.
-# NOTE: mod_gpio lands with waybeam-hub #219 — bump again once that merges, or
-# the gpio block in waybeam_ground.conf stays inert on CI images.
-WAYBEAM_HUB_VERSION = e3d0799
+# The PIN is what CI builds — WAYBEAM_HUB_OVERRIDE_SRCDIR resolves to empty
+# without a sibling checkout — so it has to be verified, not assumed. An earlier
+# pin (1491fb2) had ZERO `WBLINK` references in its Makefile, so the variables
+# passed below were silently ignored and CI shipped a hub with no in-process
+# node while the recipe looked correct.
+#
+# d9631be = waybeam-hub #219 (mod_gpio). Checked before pinning: on origin/main,
+# 89 WBLINK references in its Makefile, and src/mod_gpio.{c,h} present — without
+# the latter the gpio block in waybeam_ground.conf is inert on CI images.
+WAYBEAM_HUB_VERSION = d9631be
 WAYBEAM_HUB_SITE = $(call github,snokvist,waybeam-hub,$(WAYBEAM_HUB_VERSION))
 WAYBEAM_HUB_DEPENDENCIES = rockchip-mpp gstreamer1 gst1-plugins-base \
 	libdrm eudev libgpiod cjson libcurl libpng librga
