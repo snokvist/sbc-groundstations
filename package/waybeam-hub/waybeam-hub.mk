@@ -21,14 +21,23 @@ ifeq ($(BR2_PACKAGE_MESA3D),y)
 WAYBEAM_HUB_DEPENDENCIES += mesa3d
 endif
 
-# The link is IN-PROCESS on this image (mod_wblink), so the hub links
-# waybeam-link's static archives and there is no standalone link daemon. That
-# makes waybeam-link a BUILD dependency, not just another package that happens
-# to be installed — without the ordering, the archives may not exist when the
-# hub links.
-ifeq ($(BR2_PACKAGE_WAYBEAM_LINK),y)
-WAYBEAM_HUB_DEPENDENCIES += waybeam-link
+# The link is IN-PROCESS on every image that ships the hub (mod_wblink): the hub
+# links waybeam-link's static archives and no standalone link daemon is
+# installed. That makes waybeam-link a BUILD dependency, not just another
+# package that happens to be installed — without the ordering, the archives may
+# not exist when the hub links.
+#
+# Unconditional, and a hub selected WITHOUT the link is a hard error rather than
+# a quietly linkless build. The silent path is not hypothetical: CI shipped a
+# hub with no in-process node for a month because the variables below were
+# passed to a pin whose Makefile ignored them, and nothing failed.
+ifeq ($(BR2_PACKAGE_WAYBEAM_HUB),y)
+ifneq ($(BR2_PACKAGE_WAYBEAM_LINK),y)
+$(error waybeam-hub requires BR2_PACKAGE_WAYBEAM_LINK — the radio link runs in-process (mod_wblink) and the hub links waybeam-link's static archives)
 endif
+endif
+
+WAYBEAM_HUB_DEPENDENCIES += waybeam-link
 
 # WBLINK_SRCDIR must be passed explicitly. The hub Makefile defaults it to
 # `../waybeam-link`, which is correct for a side-by-side developer checkout but
@@ -44,18 +53,9 @@ endif
 # (libwblink_*.a, devourer/, libusb/) share $(WAYBEAM_LINK_DIR).
 #
 # waybeam-hub Makefile uses pkg-config to discover flags — do not override CFLAGS/LDFLAGS
-# WBLINK=0 when the link package is not selected. powkiddy_rgb20pro enables the
-# hub WITHOUT waybeam-link, and an unconditional dependency there would both
-# drag the retired daemon back into that rootfs (per-package dirs are
-# hardlink-rsynced into dependents) and ask the hub to link archives nothing
-# built.
-ifeq ($(BR2_PACKAGE_WAYBEAM_LINK),y)
 WAYBEAM_HUB_WBLINK_ARGS = WBLINK=1 \
 	WBLINK_SRCDIR="$(WAYBEAM_LINK_DIR)" \
 	WBLINK_GROUND_BUILDDIR="$(WAYBEAM_LINK_DIR)"
-else
-WAYBEAM_HUB_WBLINK_ARGS = WBLINK=0
-endif
 
 define WAYBEAM_HUB_BUILD_CMDS
 	$(TARGET_MAKE_ENV) $(MAKE) -C $(@D) ground \

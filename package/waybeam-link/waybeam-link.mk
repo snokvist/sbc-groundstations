@@ -58,14 +58,16 @@ WAYBEAM_LINK_CONF_OPTS = \
 # note rcS globs /etc/init.d/S??*, so disabling it again means renaming OUT of
 # that glob (K49...), not suffixing it.
 #
-# The explicit `rm -f`s below are NOT redundant with dropping the INSTALL lines,
-# and were added after measuring the difference. TARGET_DIR is cumulative — in
-# per-package mode too — so on any tree that has built this package before,
-# deleting an install command leaves the previously installed file sitting in
-# the rootfs. The recipe was already correct and the stale file shipped anyway;
-# only a from-scratch build would have cleared it, which is exactly the kind of
-# dev-tree-vs-release-build difference nobody notices until an image boots two
-# link claimants.
+# Dropping the INSTALL lines is NOT enough on its own, which is why the removal
+# also lives in board/common/post-build-script.sh. Two separate reasons, both
+# measured: TARGET_DIR is cumulative, so on a tree that built this package
+# before, deleting an install command leaves the old file sitting there; and in
+# per-package mode an `rm -f` HERE would only clean per-package/waybeam-link/
+# target, because buildroot aggregates with `rsync -a --hard-links` and no
+# --delete. Only the post-build script sees the real rootfs. Until that moved,
+# the recipe read as correct while a Jul 19 S49waybeam-link shipped anyway —
+# exactly the dev-tree-vs-release-build difference nobody notices until an image
+# boots two link claimants.
 define WAYBEAM_LINK_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0644 $(WAYBEAM_LINK_PKGDIR)/files/rx.json \
 		$(TARGET_DIR)/etc/waybeam-link/rx.json
