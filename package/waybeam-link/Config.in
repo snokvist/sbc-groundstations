@@ -1,5 +1,5 @@
 config BR2_PACKAGE_WAYBEAM_LINK
-	bool "waybeam-link (ground station)"
+	bool "waybeam-link (in-process radio link for waybeam-hub)"
 	depends on BR2_TOOLCHAIN_GCC_AT_LEAST_11
 	depends on BR2_INSTALL_LIBSTDCPP
 	depends on BR2_TOOLCHAIN_HAS_THREADS
@@ -11,8 +11,15 @@ config BR2_PACKAGE_WAYBEAM_LINK
 	  coordinated follow-me channel switch. Built on the vendored OpenIPC
 	  devourer userspace radio stack (static libusb, no system dep).
 
-	  Replaces the wfb-ng ground link. The RX role delivers recovered
-	  RTP to 127.0.0.1:5600 for the waybeam-hub decoder.
+	  Replaces the wfb-ng ground link.
+
+	  Selecting this does NOT install a daemon. The link runs
+	  in-process inside waybeam-hub (mod_wblink), so what this package
+	  contributes to the image is a config under /etc/waybeam-link, and
+	  what it contributes to the build is libwblink_{core,io,node}.a
+	  plus the vendored devourer/libusb. It is REQUIRED by
+	  BR2_PACKAGE_WAYBEAM_HUB — a hub built without it is a build
+	  error, not a smaller image.
 
 comment "waybeam-link needs a gcc >= 11, C++ and threads toolchain"
 	depends on !BR2_TOOLCHAIN_GCC_AT_LEAST_11 || \
