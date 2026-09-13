@@ -12,10 +12,10 @@
 # authenticate to the private repo. Mirrors the waybeam-hub packaging pattern.
 #
 ###############################################################################
-# 15eeb14 = waybeam-link #244. It adds the local profile/drop control reads and
-# sanitized effective-feature state consumed by the embedded Hub WebUI. No RF
-# wire or table change; the package remains an in-process library/config only.
-WAYBEAM_LINK_VERSION = 15eeb14
+# 2dd2912 = waybeam-link #274. Adds POST /api/v1/move (Pass 206) — a local
+# detach-and-retune — plus the RxEngine::unpin_originator() API it depends on,
+# consumed by the hub's role-checked POST /move. No change to the RF wire.
+WAYBEAM_LINK_VERSION = 2dd2912
 WAYBEAM_LINK_SITE = $(call github,snokvist,waybeam-link,$(WAYBEAM_LINK_VERSION))
 WAYBEAM_LINK_LICENSE = GPL-2.0-or-later
 WAYBEAM_LINK_LICENSE_FILES = LICENSE
