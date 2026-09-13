@@ -13,10 +13,11 @@
 # passed below were silently ignored and CI shipped a hub with no in-process
 # node while the recipe looked correct.
 #
-# 0468e5f = waybeam-hub #223. Checked before pinning with Link #244: the ground
-# build links the in-process node, serves the role-local status/debug page, and
+# 69f98d6 = waybeam-hub #241 (POST /move + the "move ground" OSD submenu, the
+# grey SPECTATE chip on link_chip, and the @wblink_claimable metric). Merged on
+# top of #223's in-process node; the ground build still links the node and
 # forces every management proxy route to loopback.
-WAYBEAM_HUB_VERSION = 0468e5f
+WAYBEAM_HUB_VERSION = 69f98d6
 WAYBEAM_HUB_SITE = $(call github,snokvist,waybeam-hub,$(WAYBEAM_HUB_VERSION))
 WAYBEAM_HUB_DEPENDENCIES = rockchip-mpp gstreamer1 gst1-plugins-base \
 	libdrm eudev libgpiod cjson libcurl libpng librga
